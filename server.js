@@ -1,105 +1,87 @@
-require('dotenv').config();
-
-const express = require('express');
-const nodemailer = require('nodemailer');
-const path = require('path');
+const express = require("express");
+const path = require("path");
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
-
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT || 465),
-  secure: String(process.env.SMTP_SECURE || 'true').toLowerCase() === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: (process.env.SMTP_PASS || '').replace(/\s/g, '')
+const port = process.env.PORT || 3000;
+
+// Render Free blocks outbound SMTP connections.
+// Use Resend's HTTPS Email API instead of Gmail SMTP.
+async function sendEmail({ to, subject, body }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.MAIL_FROM || "onboarding@resend.dev";
+
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is not configured on Render");
   }
-});
 
-// Gmail SMTP connection test
-app.get('/api/test-email', async (req, res) => {
-  try {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      return res.status(400).json({
-        ok: false,
-        error: 'SMTP_USER or SMTP_PASS is missing in .env'
-      });
-    }
-
-    await transporter.verify();
-
-    res.json({
-      ok: true,
-      message: 'Gmail SMTP connection is working.'
-    });
-  } catch (error) {
-    console.error('SMTP TEST ERROR:', error);
-    res.status(500).json({
-      ok: false,
-      error: error.message
-    });
-  }
-});
-
-// Send an actual absent-student reminder email
-app.post('/api/send-absent-reminder', async (req, res) => {
-  try {
-    const { studentName, studentEmail, roll, branch, date } = req.body;
-
-    if (!studentName || !studentEmail || !date) {
-      return res.status(400).json({
-        ok: false,
-        error: 'studentName, studentEmail and date are required.'
-      });
-    }
-
-    const fromAddress = process.env.MAIL_FROM || process.env.SMTP_USER;
-    const replyTo = process.env.MAIL_REPLY_TO || fromAddress;
-    const subject = 'Attendance Reminder | AttendXStudent';
-    const safe = (value) => String(value ?? 'N/A')
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;');
-
-    const text = `Dear ${studentName},\n\nThis is a reminder that you were marked absent in AttendXStudent.\n\nAttendance date: ${date}\nRoll number: ${roll || 'N/A'}\nClass / Branch: ${branch || 'N/A'}\n\nIf you believe this is incorrect, please contact your faculty.\n\nRegards,\nAttendXStudent\nSmart Attendance System`;
-
-    const html = `<!doctype html><html><body style=\"margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#222;\"><div style=\"max-width:600px;margin:24px auto;background:#fff;border:1px solid #ddd;border-radius:10px;padding:28px;\"><h2 style=\"margin-top:0;\">Attendance Reminder</h2><p>Dear ${safe(studentName)},</p><p>This is a reminder that you were marked <strong>absent</strong> in AttendXStudent.</p><p><strong>Attendance date:</strong> ${safe(date)}<br><strong>Roll number:</strong> ${safe(roll)}<br><strong>Class / Branch:</strong> ${safe(branch)}</p><p>If you believe this is incorrect, please contact your faculty.</p><p>Regards,<br>AttendXStudent<br>Smart Attendance System</p></div></body></html>`;
-
-    const info = await transporter.sendMail({
-      from: fromAddress,
-      to: studentEmail,
-      replyTo,
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
       subject,
-      text,
-      html,
-      envelope: { from: fromAddress, to: studentEmail },
-      headers: { 'X-Mailer': 'AttendXStudent Attendance System' }
+      text: body,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || `Email API error (${response.status})`);
+  }
+
+  return data;
+}
+
+// Test email route
+app.post("/api/test-email", async (req, res) => {
+  try {
+    const { to } = req.body;
+    if (!to) return res.status(400).json({ error: "Recipient email required" });
+
+    const result = await sendEmail({
+      to,
+      subject: "AttendXStudent Test Email",
+      body: "This is a test email from AttendXStudent.",
     });
 
-    console.log(`Email sent to ${studentEmail}: ${info.messageId}`);
-
-    res.json({
-      ok: true,
-      message: 'Absent reminder email sent successfully.',
-      messageId: info.messageId
-    });
+    res.json({ ok: true, result });
   } catch (error) {
-    console.error('EMAIL SEND ERROR:', error);
-    res.status(500).json({
-      ok: false,
-      error: error.message
-    });
+    console.error("Test email failed:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Optional browser test page
-app.get('/api', (req, res) => {
-  res.json({ ok: true, service: 'AttendXStudent API' });
+// Attendance reminder route
+app.post("/api/send-reminder", async (req, res) => {
+  try {
+    const { to, subject, body } = req.body;
+    if (!to) return res.status(400).json({ error: "Recipient email required" });
+
+    const result = await sendEmail({
+      to,
+      subject: subject || "AttendXStudent Attendance Reminder",
+      body: body || "You were marked absent for today's class.",
+    });
+
+    res.json({ ok: true, result });
+  } catch (error) {
+    console.error("Reminder email failed:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`AttendXStudent running at http://localhost:${PORT}`);
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, service: "AttendXStudent" });
+});
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`AttendXStudent running on port ${port}`);
 });
