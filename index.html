@@ -1,112 +1,1389 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>AttendXStudent — Smart Attendance System</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+  <title>AttendXStudent — Smart Attendance System</title>
+
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<div id="loginScreen" class="login-screen">
-  <div class="login-layout">
-    <section class="login-brand-panel">
-      <div class="brand-content">
-        <div class="cap">🎓</div>
-        <h2>AttendXStudent</h2>
-        <div class="brand-subtitle">SMART ATTENDANCE SYSTEM</div>
-        <div class="brand-line"><span></span></div>
-        <div class="feature-list">
-          <div class="feature"><div class="feature-icon">♙</div><div><b>Manage Students</b><small>Add, edit and manage student records easily.</small></div></div>
-          <div class="feature"><div class="feature-icon">▣</div><div><b>Take Attendance</b><small>Mark attendance quickly and accurately.</small></div></div>
-          <div class="feature"><div class="feature-icon">▥</div><div><b>Reports & Analytics</b><small>Generate detailed reports and insights.</small></div></div>
-          <div class="feature"><div class="feature-icon">♢</div><div><b>Secure & Reliable</b><small>Your attendance data stays protected.</small></div></div>
+
+  <!-- ==================================================
+       LOGIN SCREEN
+       ================================================== -->
+
+  <div id="loginScreen" class="login-screen">
+
+    <div class="login-layout">
+
+      <!-- LEFT BRAND PANEL -->
+
+      <section class="login-brand-panel">
+
+        <div class="brand-content">
+
+          <div class="cap">🎓</div>
+
+          <h2>AttendXStudent</h2>
+
+          <div class="brand-subtitle">
+            SMART ATTENDANCE SYSTEM
+          </div>
+
+          <div class="brand-line">
+            <span></span>
+          </div>
+
+          <div class="feature-list">
+
+            <div class="feature">
+              <div class="feature-icon">♙</div>
+
+              <div>
+                <b>Manage Students</b>
+                <small>
+                  Add, edit and manage student records easily.
+                </small>
+              </div>
+            </div>
+
+
+            <div class="feature">
+              <div class="feature-icon">▣</div>
+
+              <div>
+                <b>Take Attendance</b>
+                <small>
+                  Mark attendance quickly and accurately.
+                </small>
+              </div>
+            </div>
+
+
+            <div class="feature">
+              <div class="feature-icon">▥</div>
+
+              <div>
+                <b>Reports & Analytics</b>
+                <small>
+                  Generate detailed reports and insights.
+                </small>
+              </div>
+            </div>
+
+
+            <div class="feature">
+              <div class="feature-icon">♢</div>
+
+              <div>
+                <b>Secure & Reliable</b>
+                <small>
+                  Your attendance data stays protected.
+                </small>
+              </div>
+            </div>
+
+          </div>
+
         </div>
-      </div>
-      <div class="login-copy">© 2026 AttendXStudent. All rights reserved.</div>
-    </section>
-    <section class="login-form-panel">
-      <div class="login-form-card">
-        <div class="welcome-icon">✓</div>
-        <h1>Welcome<br>Back!</h1>
-        <p>Log in to continue to your dashboard.</p>
-        <form id="loginForm">
-          <label>Email Address<div class="input-icon-wrap"><span>♙</span><input id="loginUsername" type="text" placeholder="yourmail@gmail.com" required></div></label>
-          <label>Password<div class="input-icon-wrap"><span>▣</span><input id="loginPassword" type="password" placeholder="••••••••••" required><button type="button" class="eye-btn" id="showPassword">◉</button></div></label>
-          <div class="login-options"><label class="remember"><input id="rememberMe" type="checkbox"> <span>Remember me</span></label><button type="button" class="forgot-btn" onclick="alert('For the demo, use admin / admin123.')">Forgot Password?</button></div>
-          <button type="submit" class="login-btn">Log In</button>
-          <div id="loginError" class="login-error"></div>
-          <div class="or-divider"><span>Or continue with</span></div>
-          <div class="social-row"><button type="button" class="social-btn">G&nbsp; Google</button><button type="button" class="social-btn">●&nbsp; Apple</button></div>
-          <div class="signup-text">Don't have an account? <button type="button" onclick="alert('Sign-up is a demo placeholder.')">Sign Up</button></div>
-        </form>
-        <div class="demo-hint">Demo login: <b>admin</b> / <b>admin123</b></div>
-      </div>
-    </section>
+
+
+        <div class="login-copy">
+          © 2026 AttendXStudent. All rights reserved.
+        </div>
+
+      </section>
+
+
+      <!-- RIGHT LOGIN PANEL -->
+
+      <section class="login-form-panel">
+
+        <div class="login-form-card">
+
+          <div class="welcome-icon">
+            ✓
+          </div>
+
+
+          <h1>
+            Welcome<br>
+            Back!
+          </h1>
+
+
+          <p>
+            Log in to continue to your dashboard.
+          </p>
+
+
+          <!-- LOGIN FORM -->
+
+          <form id="loginForm">
+
+            <!-- EMAIL -->
+
+            <label>
+              Email Address
+
+              <div class="input-icon-wrap">
+
+                <span>♙</span>
+
+                <input
+                  id="loginUsername"
+                  type="text"
+                  placeholder="yourmail@gmail.com"
+                  required
+                >
+
+              </div>
+
+            </label>
+
+
+            <!-- PASSWORD -->
+
+            <label>
+
+              Password
+
+              <div class="input-icon-wrap">
+
+                <span>▣</span>
+
+                <input
+                  id="loginPassword"
+                  type="password"
+                  placeholder="••••••••••"
+                  required
+                >
+
+                <button
+                  type="button"
+                  class="eye-btn"
+                  id="showPassword"
+                >
+                  ◉
+                </button>
+
+              </div>
+
+            </label>
+
+
+            <!-- LOGIN OPTIONS -->
+
+            <div class="login-options">
+
+              <label class="remember">
+
+                <input
+                  id="rememberMe"
+                  type="checkbox"
+                >
+
+                <span>
+                  Remember me
+                </span>
+
+              </label>
+
+
+              <button
+                type="button"
+                class="forgot-btn"
+                onclick="alert('For the demo, use admin / admin123.')"
+              >
+                Forgot Password?
+              </button>
+
+            </div>
+
+
+            <!-- NORMAL LOGIN -->
+
+            <button
+              type="submit"
+              class="login-btn"
+            >
+              Log In
+            </button>
+
+
+            <div
+              id="loginError"
+              class="login-error"
+            ></div>
+
+
+            <!-- DIVIDER -->
+
+            <div class="or-divider">
+              <span>
+                Or continue with
+              </span>
+            </div>
+
+
+            <!-- SOCIAL LOGIN -->
+
+            <div class="social-row">
+
+              <!-- GOOGLE LOGIN -->
+
+              <button
+                type="button"
+                class="social-btn"
+                id="googleLoginBtn"
+              >
+                G&nbsp; Google
+              </button>
+
+
+              <!-- APPLE -->
+
+              <button
+                type="button"
+                class="social-btn"
+              >
+                ●&nbsp; Apple
+              </button>
+
+            </div>
+
+
+            <!-- SIGN UP -->
+
+            <div class="signup-text">
+
+              Don't have an account?
+
+              <button
+                type="button"
+                onclick="alert('Sign-up is a demo placeholder.')"
+              >
+                Sign Up
+              </button>
+
+            </div>
+
+          </form>
+
+
+          <!-- DEMO LOGIN -->
+
+          <div class="demo-hint">
+
+            Demo login:
+            <b>admin</b>
+            /
+            <b>admin123</b>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
   </div>
-</div>
 
-<div class="app hidden" id="app">
-<aside class="sidebar">
-  <div class="brand"><span>✓</span> AttendXStudent</div>
-  <nav>
-    <button class="nav active" data-page="dashboard">▦ <span>Dashboard</span></button>
-    <button class="nav" data-page="attendance">✓ <span>Take Attendance</span></button>
-    <button class="nav" data-page="students">♙ <span>Students</span></button>
-    <button class="nav" data-page="history">◷ <span>History & Reports</span></button>
-    <button class="nav" data-page="reminders">✉ <span>Absent Reminders</span><em id="reminderBadge">0</em></button>
-  </nav>
-  <div class="side-bottom"><button id="themeBtn" class="side-btn">☾ <span>Dark mode</span></button><button id="resetBtn" class="side-btn danger">↻ <span>Reset demo data</span></button><button id="logoutBtn" class="side-btn">⇥ <span>Logout</span></button></div>
-</aside>
-<main>
-<header><div><h1 id="pageTitle">Dashboard</h1><p id="todayText"></p></div><div class="header-actions"><button class="icon-btn" id="themeTop">☾</button><button class="avatar">T</button></div></header>
 
-<section id="dashboard" class="page active-page">
-<div class="stats">
-<div class="stat"><div class="stat-icon blue">♙</div><div><small>Total Students</small><strong id="totalStudents">0</strong></div></div>
-<div class="stat"><div class="stat-icon green">✓</div><div><small>Present Today</small><strong id="presentToday">0</strong></div></div>
-<div class="stat"><div class="stat-icon red">×</div><div><small>Absent Today</small><strong id="absentToday">0</strong></div></div>
-<div class="stat"><div class="stat-icon purple">%</div><div><small>Attendance Rate</small><strong id="rateToday">0%</strong></div></div>
-</div>
-<div class="grid two">
-<div class="card"><div class="card-head"><div><h2>Today's Attendance</h2><p>Quick overview</p></div><button class="primary" onclick="showPage('attendance')">Take Attendance</button></div><div class="donut-wrap"><div class="donut" id="donut"><div><b id="donutRate">0%</b><span>Present</span></div></div></div><div class="legend"><span><i class="dot present"></i>Present <b id="legPresent">0</b></span><span><i class="dot absent"></i>Absent <b id="legAbsent">0</b></span></div></div>
-<div class="card"><div class="card-head"><div><h2>Absent Reminder</h2><p>Auto-created when attendance is saved</p></div><button class="text-btn" onclick="showPage('reminders')">View →</button></div><div id="dashboardReminder"></div></div>
-</div>
-</section>
 
-<section id="attendance" class="page">
-<div class="toolbar card"><div><label>Date</label><input type="date" id="attDate"></div><div class="grow"><label>Search student</label><input type="search" id="attSearch" placeholder="Search by name or roll number..."></div><button class="secondary" id="markAll">✓ Mark all present</button><button class="primary" id="saveAttendance">Save Attendance</button></div>
-<div class="card"><div class="attendance-summary"><b id="attCount">0 students</b><span><i class="dot present"></i> Present: <b id="attPresent">0</b></span><span><i class="dot absent"></i> Absent: <b id="attAbsent">0</b></span></div><div class="table-wrap"><table><thead><tr><th>Roll No.</th><th>Student</th><th>Class / Branch</th><th>Email</th><th>Status</th></tr></thead><tbody id="attendanceBody"></tbody></table></div></div>
-</section>
+  <!-- ==================================================
+       MAIN APPLICATION
+       ================================================== -->
 
-<section id="students" class="page">
-<div class="toolbar card"><div class="grow"><label>Search</label><input type="search" id="studentSearch" placeholder="Search students..."></div><button class="primary" id="addStudent">+ Add Student</button></div>
-<div class="card"><div class="table-wrap"><table><thead><tr><th>Roll No.</th><th>Student</th><th>Class / Branch</th><th>Phone</th><th>Email</th><th>Overall %</th><th>Actions</th></tr></thead><tbody id="studentBody"></tbody></table></div></div>
-</section>
+  <div
+    class="app hidden"
+    id="app"
+  >
 
-<section id="history" class="page">
-<div class="toolbar card"><div><label>Student</label><select id="historyStudent"><option value="all">All Students</option></select></div><div><label>From</label><input type="date" id="fromDate"></div><div><label>To</label><input type="date" id="toDate"></div><button class="secondary" id="filterHistory">Apply Filter</button><button class="secondary" id="exportCsv">↓ Export CSV</button></div>
-<div class="stats mini"><div class="stat"><div><small>Records</small><strong id="recordCount">0</strong></div></div><div class="stat"><div><small>Present</small><strong id="historyPresent">0</strong></div></div><div class="stat"><div><small>Absent</small><strong id="historyAbsent">0</strong></div></div><div class="stat"><div><small>Filtered Rate</small><strong id="historyRate">0%</strong></div></div></div>
-<div class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Roll No.</th><th>Student</th><th>Status</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
-</section>
 
-<section id="reminders" class="page">
-<div class="card reminder-hero"><div><h2>Absent Student Email Reminders</h2><p>When you save attendance, AttendXStudent automatically sends a reminder email to every absent student who has an email address.</p></div><button class="primary" id="createAllReminders">Send Today's Reminders</button></div>
-<div class="card"><div class="card-head"><div><h2>Reminder Queue</h2><p id="queueText">0 reminders</p></div><button class="secondary" id="clearReminders">Clear Queue</button></div><div id="reminderList" class="reminder-list"></div></div>
-<div class="card info-card"><b>Automatic Gmail sending</b><p>When attendance is saved, absent students with an email address are sent a reminder through your configured Gmail SMTP account. Your Gmail App Password stays in the server-side <code>.env</code> file and is never sent to the browser.</p></div>
-</section>
-</main>
-</div>
+    <!-- SIDEBAR -->
 
-<div class="modal" id="modal"><div class="modal-box"><div class="modal-head"><h2 id="modalTitle">Add Student</h2><button type="button" id="closeModal">×</button></div>
-<form id="studentForm"><input type="hidden" id="editId">
-<label>Roll Number<input required id="roll" type="text" placeholder="e.g. 101"></label>
-<label>Student Name<input required id="name" type="text" placeholder="Full name"></label>
-<label>Class / Branch<input required id="branch" type="text" placeholder="e.g. CSE 2nd Year"></label>
-<label>Phone Number<input required id="phone" type="tel" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" placeholder="10-digit mobile number"></label>
-<label>Email Address<input required id="email" type="email" placeholder="student@gmail.com"></label>
-<small class="phone-help">Email is used only to create absent-student reminder drafts.</small>
-<div class="modal-actions"><button type="button" class="secondary" id="cancelModal">Cancel</button><button type="submit" class="primary">Save Student</button></div>
-</form></div></div>
-<div id="toast"></div>
-<script src="script.js"></script>
-</body></html>
+    <aside class="sidebar">
+
+      <div class="brand">
+        <span>✓</span>
+        AttendXStudent
+      </div>
+
+
+      <nav>
+
+        <button
+          class="nav active"
+          data-page="dashboard"
+        >
+          ▦
+          <span>
+            Dashboard
+          </span>
+        </button>
+
+
+        <button
+          class="nav"
+          data-page="attendance"
+        >
+          ✓
+          <span>
+            Take Attendance
+          </span>
+        </button>
+
+
+        <button
+          class="nav"
+          data-page="students"
+        >
+          ♙
+          <span>
+            Students
+          </span>
+        </button>
+
+
+        <button
+          class="nav"
+          data-page="history"
+        >
+          ◷
+          <span>
+            History & Reports
+          </span>
+        </button>
+
+
+        <button
+          class="nav"
+          data-page="reminders"
+        >
+          ✉
+
+          <span>
+            Absent Reminders
+          </span>
+
+          <em id="reminderBadge">
+            0
+          </em>
+
+        </button>
+
+      </nav>
+
+
+      <!-- SIDEBAR BOTTOM -->
+
+      <div class="side-bottom">
+
+        <button
+          id="themeBtn"
+          class="side-btn"
+        >
+          ☾
+          <span>
+            Dark mode
+          </span>
+        </button>
+
+
+        <button
+          id="resetBtn"
+          class="side-btn danger"
+        >
+          ↻
+          <span>
+            Reset demo data
+          </span>
+        </button>
+
+
+        <button
+          id="logoutBtn"
+          class="side-btn"
+        >
+          ⇥
+          <span>
+            Logout
+          </span>
+        </button>
+
+      </div>
+
+    </aside>
+
+
+
+    <!-- ==================================================
+         MAIN CONTENT
+         ================================================== -->
+
+    <main>
+
+
+      <!-- HEADER -->
+
+      <header>
+
+        <div>
+
+          <h1 id="pageTitle">
+            Dashboard
+          </h1>
+
+          <p id="todayText"></p>
+
+        </div>
+
+
+        <div class="header-actions">
+
+          <button
+            class="icon-btn"
+            id="themeTop"
+          >
+            ☾
+          </button>
+
+
+          <button class="avatar">
+            T
+          </button>
+
+        </div>
+
+      </header>
+
+
+
+      <!-- ==================================================
+           DASHBOARD
+           ================================================== -->
+
+      <section
+        id="dashboard"
+        class="page active-page"
+      >
+
+        <div class="stats">
+
+
+          <div class="stat">
+
+            <div class="stat-icon blue">
+              ♙
+            </div>
+
+            <div>
+
+              <small>
+                Total Students
+              </small>
+
+              <strong id="totalStudents">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div class="stat-icon green">
+              ✓
+            </div>
+
+            <div>
+
+              <small>
+                Present Today
+              </small>
+
+              <strong id="presentToday">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div class="stat-icon red">
+              ×
+            </div>
+
+            <div>
+
+              <small>
+                Absent Today
+              </small>
+
+              <strong id="absentToday">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div class="stat-icon purple">
+              %
+            </div>
+
+            <div>
+
+              <small>
+                Attendance Rate
+              </small>
+
+              <strong id="rateToday">
+                0%
+              </strong>
+
+            </div>
+
+          </div>
+
+
+        </div>
+
+
+
+        <div class="grid two">
+
+
+          <!-- TODAY ATTENDANCE -->
+
+          <div class="card">
+
+            <div class="card-head">
+
+              <div>
+
+                <h2>
+                  Today's Attendance
+                </h2>
+
+                <p>
+                  Quick overview
+                </p>
+
+              </div>
+
+
+              <button
+                class="primary"
+                onclick="showPage('attendance')"
+              >
+                Take Attendance
+              </button>
+
+            </div>
+
+
+            <div class="donut-wrap">
+
+              <div
+                class="donut"
+                id="donut"
+              >
+
+                <div>
+
+                  <b id="donutRate">
+                    0%
+                  </b>
+
+                  <span>
+                    Present
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div class="legend">
+
+              <span>
+
+                <i class="dot present"></i>
+
+                Present
+
+                <b id="legPresent">
+                  0
+                </b>
+
+              </span>
+
+
+              <span>
+
+                <i class="dot absent"></i>
+
+                Absent
+
+                <b id="legAbsent">
+                  0
+                </b>
+
+              </span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- ABSENT REMINDER -->
+
+          <div class="card">
+
+            <div class="card-head">
+
+              <div>
+
+                <h2>
+                  Absent Reminder
+                </h2>
+
+                <p>
+                  Auto-created when attendance is saved
+                </p>
+
+              </div>
+
+
+              <button
+                class="text-btn"
+                onclick="showPage('reminders')"
+              >
+                View →
+              </button>
+
+            </div>
+
+
+            <div id="dashboardReminder"></div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- ==================================================
+           ATTENDANCE
+           ================================================== -->
+
+      <section
+        id="attendance"
+        class="page"
+      >
+
+        <div class="toolbar card">
+
+
+          <div>
+
+            <label>
+              Date
+            </label>
+
+            <input
+              type="date"
+              id="attDate"
+            >
+
+          </div>
+
+
+          <div class="grow">
+
+            <label>
+              Search student
+            </label>
+
+            <input
+              type="search"
+              id="attSearch"
+              placeholder="Search by name or roll number..."
+            >
+
+          </div>
+
+
+          <button
+            class="secondary"
+            id="markAll"
+          >
+            ✓ Mark all present
+          </button>
+
+
+          <button
+            class="primary"
+            id="saveAttendance"
+          >
+            Save Attendance
+          </button>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div class="attendance-summary">
+
+            <b id="attCount">
+              0 students
+            </b>
+
+
+            <span>
+
+              <i class="dot present"></i>
+
+              Present:
+
+              <b id="attPresent">
+                0
+              </b>
+
+            </span>
+
+
+            <span>
+
+              <i class="dot absent"></i>
+
+              Absent:
+
+              <b id="attAbsent">
+                0
+              </b>
+
+            </span>
+
+          </div>
+
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Roll No.
+                  </th>
+
+                  <th>
+                    Student
+                  </th>
+
+                  <th>
+                    Class / Branch
+                  </th>
+
+                  <th>
+                    Email
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="attendanceBody"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- ==================================================
+           STUDENTS
+           ================================================== -->
+
+      <section
+        id="students"
+        class="page"
+      >
+
+        <div class="toolbar card">
+
+
+          <div class="grow">
+
+            <label>
+              Search
+            </label>
+
+            <input
+              type="search"
+              id="studentSearch"
+              placeholder="Search students..."
+            >
+
+          </div>
+
+
+          <button
+            class="primary"
+            id="addStudent"
+          >
+            + Add Student
+          </button>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Roll No.
+                  </th>
+
+                  <th>
+                    Student
+                  </th>
+
+                  <th>
+                    Class / Branch
+                  </th>
+
+                  <th>
+                    Phone
+                  </th>
+
+                  <th>
+                    Email
+                  </th>
+
+                  <th>
+                    Overall %
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="studentBody"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- ==================================================
+           HISTORY
+           ================================================== -->
+
+      <section
+        id="history"
+        class="page"
+      >
+
+        <div class="toolbar card">
+
+
+          <div>
+
+            <label>
+              Student
+            </label>
+
+            <select id="historyStudent">
+
+              <option value="all">
+                All Students
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div>
+
+            <label>
+              From
+            </label>
+
+            <input
+              type="date"
+              id="fromDate"
+            >
+
+          </div>
+
+
+          <div>
+
+            <label>
+              To
+            </label>
+
+            <input
+              type="date"
+              id="toDate"
+            >
+
+          </div>
+
+
+          <button
+            class="secondary"
+            id="filterHistory"
+          >
+            Apply Filter
+          </button>
+
+
+          <button
+            class="secondary"
+            id="exportCsv"
+          >
+            ↓ Export CSV
+          </button>
+
+        </div>
+
+
+
+        <div class="stats mini">
+
+
+          <div class="stat">
+
+            <div>
+
+              <small>
+                Records
+              </small>
+
+              <strong id="recordCount">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div>
+
+              <small>
+                Present
+              </small>
+
+              <strong id="historyPresent">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div>
+
+              <small>
+                Absent
+              </small>
+
+              <strong id="historyAbsent">
+                0
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat">
+
+            <div>
+
+              <small>
+                Filtered Rate
+              </small>
+
+              <strong id="historyRate">
+                0%
+              </strong>
+
+            </div>
+
+          </div>
+
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Date
+                  </th>
+
+                  <th>
+                    Roll No.
+                  </th>
+
+                  <th>
+                    Student
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody
+                id="historyBody"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+
+      <!-- ==================================================
+           ABSENT REMINDERS
+           ================================================== -->
+
+      <section
+        id="reminders"
+        class="page"
+      >
+
+
+        <div class="card reminder-hero">
+
+          <div>
+
+            <h2>
+              Absent Student Email Reminders
+            </h2>
+
+            <p>
+              When you save attendance,
+              AttendXStudent automatically sends
+              a reminder email to every absent
+              student who has an email address.
+            </p>
+
+          </div>
+
+
+          <button
+            class="primary"
+            id="createAllReminders"
+          >
+            Send Today's Reminders
+          </button>
+
+        </div>
+
+
+
+        <div class="card">
+
+          <div class="card-head">
+
+            <div>
+
+              <h2>
+                Reminder Queue
+              </h2>
+
+              <p id="queueText">
+                0 reminders
+              </p>
+
+            </div>
+
+
+            <button
+              class="secondary"
+              id="clearReminders"
+            >
+              Clear Queue
+            </button>
+
+          </div>
+
+
+          <div
+            id="reminderList"
+            class="reminder-list"
+          ></div>
+
+        </div>
+
+
+
+        <div class="card info-card">
+
+          <b>
+            Automatic Gmail sending
+          </b>
+
+          <p>
+            When attendance is saved,
+            absent students with an email address
+            are sent a reminder through your
+            configured Gmail SMTP account.
+            Your Gmail App Password stays in the
+            server-side <code>.env</code> file and
+            is never sent to the browser.
+          </p>
+
+        </div>
+
+      </section>
+
+
+    </main>
+
+  </div>
+
+
+
+  <!-- ==================================================
+       ADD / EDIT STUDENT MODAL
+       ================================================== -->
+
+  <div
+    class="modal"
+    id="modal"
+  >
+
+    <div class="modal-box">
+
+
+      <div class="modal-head">
+
+        <h2 id="modalTitle">
+          Add Student
+        </h2>
+
+
+        <button
+          type="button"
+          id="closeModal"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="studentForm">
+
+        <input
+          type="hidden"
+          id="editId"
+        >
+
+
+        <label>
+
+          Roll Number
+
+          <input
+            required
+            id="roll"
+            type="text"
+            placeholder="e.g. 101"
+          >
+
+        </label>
+
+
+        <label>
+
+          Student Name
+
+          <input
+            required
+            id="name"
+            type="text"
+            placeholder="Full name"
+          >
+
+        </label>
+
+
+        <label>
+
+          Class / Branch
+
+          <input
+            required
+            id="branch"
+            type="text"
+            placeholder="e.g. CSE 2nd Year"
+          >
+
+        </label>
+
+
+        <label>
+
+          Phone Number
+
+          <input
+            required
+            id="phone"
+            type="tel"
+            inputmode="numeric"
+            maxlength="10"
+            pattern="[0-9]{10}"
+            placeholder="10-digit mobile number"
+          >
+
+        </label>
+
+
+        <label>
+
+          Email Address
+
+          <input
+            required
+            id="email"
+            type="email"
+            placeholder="student@gmail.com"
+          >
+
+        </label>
+
+
+        <small class="phone-help">
+          Email is used only to create
+          absent-student reminder drafts.
+        </small>
+
+
+        <div class="modal-actions">
+
+
+          <button
+            type="button"
+            class="secondary"
+            id="cancelModal"
+          >
+            Cancel
+          </button>
+
+
+          <button
+            type="submit"
+            class="primary"
+          >
+            Save Student
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- TOAST -->
+
+  <div id="toast"></div>
+
+
+  <!-- JAVASCRIPT -->
+
+  <script src="script.js"></script>
+
+</body>
+
+</html>
