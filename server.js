@@ -89,7 +89,6 @@ app.use(
 // ============================================================
 
 app.use(passport.initialize());
-
 app.use(passport.session());
 
 // ============================================================
@@ -105,9 +104,11 @@ if (
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
 
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        clientSecret:
+          process.env.GOOGLE_CLIENT_SECRET,
 
-        callbackURL: GOOGLE_CALLBACK_URL,
+        callbackURL:
+          GOOGLE_CALLBACK_URL,
       },
 
       async (
@@ -136,7 +137,9 @@ if (
           );
 
           return done(null, user);
+
         } catch (error) {
+
           console.error(
             "Google OAuth error:",
             error
@@ -151,7 +154,9 @@ if (
   console.log(
     "Google OAuth: CONFIGURED"
   );
+
 } else {
+
   console.log(
     "WARNING: Google OAuth credentials are missing."
   );
@@ -181,13 +186,17 @@ app.get(
   "/auth/google",
 
   (req, res, next) => {
+
     if (
       !process.env.GOOGLE_CLIENT_ID ||
       !process.env.GOOGLE_CLIENT_SECRET
     ) {
+
       return res.status(500).send(`
         <h2>Google Login is not configured</h2>
-        <p>GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing.</p>
+        <p>
+          GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing.
+        </p>
       `);
     }
 
@@ -221,6 +230,7 @@ app.get(
   ),
 
   (req, res) => {
+
     console.log(
       "Google authentication successful:",
       req.user?.email
@@ -238,8 +248,11 @@ app.get(
 
 app.get(
   "/api/me",
+
   (req, res) => {
+
     if (!req.isAuthenticated()) {
+
       return res.json({
         loggedIn: false,
         user: null,
@@ -259,9 +272,13 @@ app.get(
 
 app.get(
   "/auth/logout",
+
   (req, res) => {
+
     req.logout((error) => {
+
       if (error) {
+
         console.error(
           "Logout error:",
           error
@@ -275,7 +292,9 @@ app.get(
 
       req.session.destroy(
         (sessionError) => {
+
           if (sessionError) {
+
             console.error(
               "Session destroy error:",
               sessionError
@@ -293,8 +312,6 @@ app.get(
 // GMAIL SMTP CONFIGURATION
 // ============================================================
 
-// Render can use either SMTP_* names or GMAIL_* names.
-// Gmail App Password is required; never use the normal Gmail password.
 const SMTP_USER =
   process.env.SMTP_USER ||
   process.env.GMAIL_USER ||
@@ -308,30 +325,49 @@ const SMTP_PASS =
   ).replace(/\s/g, "");
 
 const SMTP_HOST =
-  process.env.SMTP_HOST || "smtp.gmail.com";
+  process.env.SMTP_HOST ||
+  "smtp.gmail.com";
 
-const SMTP_PORT = Number(
-  process.env.SMTP_PORT || 587
-);
+const SMTP_PORT =
+  Number(
+    process.env.SMTP_PORT || 587
+  );
 
 const SMTP_SECURE =
   String(
-    process.env.SMTP_SECURE ||
-    (SMTP_PORT === 465 ? "true" : "false")
+    process.env.SMTP_SECURE || "false"
   ).toLowerCase() === "true";
+
+// IMPORTANT:
+// Always use process.env.MAIL_FROM or the safe fallback.
+// Never use MAIL_FROM directly.
+
+const MAIL_FROM =
+  process.env.MAIL_FROM ||
+  SMTP_USER;
+
+// ============================================================
+// NODEMAILER TRANSPORTER
+// ============================================================
 
 const transporter =
   nodemailer.createTransport({
+
     host: SMTP_HOST,
+
     port: SMTP_PORT,
+
     secure: SMTP_SECURE,
-    requireTLS: SMTP_PORT === 587,
+
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS,
     },
+
     connectionTimeout: 20000,
+
     greetingTimeout: 20000,
+
     socketTimeout: 30000,
   });
 
@@ -340,6 +376,7 @@ const transporter =
 // ============================================================
 
 function getRecipient(body) {
+
   return (
     body?.to ||
     body?.email ||
@@ -352,25 +389,41 @@ function getRecipient(body) {
 }
 
 // ============================================================
-// TEST SMTP
+// SMTP CONFIG CHECK
+// ============================================================
+
+function smtpConfigError() {
+
+  if (!SMTP_USER) {
+    return "SMTP_USER / GMAIL_USER is missing";
+  }
+
+  if (!SMTP_PASS) {
+    return "SMTP_PASS / GMAIL_APP_PASSWORD is missing";
+  }
+
+  return null;
+}
+
+// ============================================================
+// TEST SMTP CONNECTION
 // ============================================================
 
 app.get(
   "/api/test-smtp",
 
   async (req, res) => {
-    try {
-      if (!SMTP_USER) {
-        return res.status(500).json({
-          ok: false,
-          error: "SMTP_USER is missing",
-        });
-      }
 
-      if (!SMTP_PASS) {
+    try {
+
+      const configError =
+        smtpConfigError();
+
+      if (configError) {
+
         return res.status(500).json({
           ok: false,
-          error: "SMTP_PASS is missing",
+          error: configError,
         });
       }
 
@@ -380,7 +433,8 @@ app.get(
         "Gmail SMTP connection successful"
       );
 
-      res.json({
+      return res.json({
+
         ok: true,
 
         message:
@@ -388,18 +442,31 @@ app.get(
 
         user:
           SMTP_USER,
+
+        host:
+          SMTP_HOST,
+
+        port:
+          SMTP_PORT,
+
+        secure:
+          SMTP_SECURE,
       });
+
     } catch (error) {
+
       console.error(
         "SMTP verification failed:",
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
+
         ok: false,
 
         error:
-          error.message,
+          error.message ||
+          "SMTP verification failed",
 
         code:
           error.code || null,
@@ -419,32 +486,34 @@ app.post(
   "/api/test-email",
 
   async (req, res) => {
+
     try {
+
       console.log(
         "TEST EMAIL BODY:",
         req.body
       );
 
+      const configError =
+        smtpConfigError();
+
+      if (configError) {
+
+        return res.status(500).json({
+          ok: false,
+          error: configError,
+        });
+      }
+
       const to =
         getRecipient(req.body);
 
-      if (!SMTP_USER) {
-        return res.status(500).json({
-          ok: false,
-          error: "SMTP_USER is missing",
-        });
-      }
-
-      if (!SMTP_PASS) {
-        return res.status(500).json({
-          ok: false,
-          error: "SMTP_PASS is missing",
-        });
-      }
-
       if (!to) {
+
         return res.status(400).json({
+
           ok: false,
+
           error:
             "Recipient email is required",
         });
@@ -452,11 +521,12 @@ app.post(
 
       const info =
         await transporter.sendMail({
-          from:
-            MAIL_FROM ||
-            SMTP_USER,
 
-          to: to,
+          from:
+            MAIL_FROM,
+
+          to:
+            to,
 
           subject:
             "AttendXStudent Test Email",
@@ -471,7 +541,8 @@ app.post(
         info.messageId
       );
 
-      res.json({
+      return res.json({
+
         ok: true,
 
         message:
@@ -480,17 +551,21 @@ app.post(
         messageId:
           info.messageId,
       });
+
     } catch (error) {
+
       console.error(
         "Test email failed:",
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
+
         ok: false,
 
         error:
-          error.message,
+          error.message ||
+          "Test email failed",
 
         code:
           error.code || null,
@@ -510,42 +585,64 @@ app.post(
   "/api/send-absent-reminder",
 
   async (req, res) => {
+
     try {
+
       console.log(
         "ABSENT REMINDER BODY:",
         req.body
       );
 
+      // --------------------------------------------------------
+      // Check SMTP configuration
+      // --------------------------------------------------------
+
+      const configError =
+        smtpConfigError();
+
+      if (configError) {
+
+        return res.status(500).json({
+
+          ok: false,
+
+          error:
+            configError,
+        });
+      }
+
+      // --------------------------------------------------------
+      // Get recipient
+      // --------------------------------------------------------
+
       const to =
         getRecipient(req.body);
+
+      // --------------------------------------------------------
+      // Get subject
+      // --------------------------------------------------------
 
       const subject =
         req.body?.subject ||
         "AttendXStudent Attendance Reminder";
+
+      // --------------------------------------------------------
+      // Get email body
+      // --------------------------------------------------------
 
       const body =
         req.body?.body ||
         req.body?.message ||
         "You were marked Absent for today's class.";
 
-      if (!SMTP_USER) {
-        return res.status(500).json({
-          ok: false,
-          error:
-            "SMTP_USER is missing",
-        });
-      }
-
-      if (!SMTP_PASS) {
-        return res.status(500).json({
-          ok: false,
-          error:
-            "SMTP_PASS is missing",
-        });
-      }
+      // --------------------------------------------------------
+      // Validate recipient
+      // --------------------------------------------------------
 
       if (!to) {
+
         return res.status(400).json({
+
           ok: false,
 
           error:
@@ -556,18 +653,50 @@ app.post(
         });
       }
 
+      // --------------------------------------------------------
+      // SEND EMAIL
+      // --------------------------------------------------------
+
+      console.log(
+        "Preparing to send absent reminder..."
+      );
+
+      console.log(
+        "From:",
+        MAIL_FROM
+      );
+
+      console.log(
+        "To:",
+        to
+      );
+
+      console.log(
+        "Subject:",
+        subject
+      );
+
       const info =
         await transporter.sendMail({
+
+          // IMPORTANT FIX:
+          // This uses the actual variable value.
           from:
-            MAIL_FROM ||
-            SMTP_USER,
+            MAIL_FROM,
 
-          to: to,
+          to:
+            to,
 
-          subject: subject,
+          subject:
+            subject,
 
-          text: body,
+          text:
+            body,
         });
+
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
 
       console.log(
         `Reminder email sent successfully to ${to}`
@@ -578,7 +707,8 @@ app.post(
         info.messageId
       );
 
-      res.json({
+      return res.json({
+
         ok: true,
 
         message:
@@ -587,17 +717,25 @@ app.post(
         messageId:
           info.messageId,
       });
+
     } catch (error) {
+
+      // --------------------------------------------------------
+      // ERROR
+      // --------------------------------------------------------
+
       console.error(
         "Reminder email failed:",
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
+
         ok: false,
 
         error:
-          error.message,
+          error.message ||
+          "Email sending failed",
 
         code:
           error.code || null,
@@ -610,22 +748,6 @@ app.post(
 );
 
 // ============================================================
-// SMTP DIAGNOSTICS
-// ============================================================
-
-app.get("/api/smtp-status", (req, res) => {
-  res.json({
-    ok: Boolean(SMTP_USER && SMTP_PASS),
-    configured: Boolean(SMTP_USER && SMTP_PASS),
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    user: SMTP_USER || null,
-    passwordConfigured: Boolean(SMTP_PASS),
-  });
-});
-
-// ============================================================
 // OLD REMINDER ENDPOINT
 // ============================================================
 
@@ -633,11 +755,27 @@ app.post(
   "/api/send-reminder",
 
   async (req, res) => {
+
     try {
+
       console.log(
         "OLD REMINDER BODY:",
         req.body
       );
+
+      const configError =
+        smtpConfigError();
+
+      if (configError) {
+
+        return res.status(500).json({
+
+          ok: false,
+
+          error:
+            configError,
+        });
+      }
 
       const to =
         getRecipient(req.body);
@@ -651,20 +789,10 @@ app.post(
         req.body?.message ||
         "You were marked Absent for today's class.";
 
-      if (
-        !SMTP_USER ||
-        !SMTP_PASS
-      ) {
-        return res.status(500).json({
-          ok: false,
-
-          error:
-            "SMTP_USER or SMTP_PASS is missing",
-        });
-      }
-
       if (!to) {
+
         return res.status(400).json({
+
           ok: false,
 
           error:
@@ -677,22 +805,26 @@ app.post(
 
       const info =
         await transporter.sendMail({
+
           from:
-            MAIL_FROM ||
-            SMTP_USER,
+            MAIL_FROM,
 
-          to: to,
+          to:
+            to,
 
-          subject: subject,
+          subject:
+            subject,
 
-          text: body,
+          text:
+            body,
         });
 
       console.log(
         `Reminder sent to ${to}`
       );
 
-      res.json({
+      return res.json({
+
         ok: true,
 
         message:
@@ -701,17 +833,21 @@ app.post(
         messageId:
           info.messageId,
       });
+
     } catch (error) {
+
       console.error(
         "Reminder email failed:",
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
+
         ok: false,
 
         error:
-          error.message,
+          error.message ||
+          "Email sending failed",
 
         code:
           error.code || null,
@@ -731,7 +867,9 @@ app.get(
   "/api/health",
 
   (req, res) => {
+
     res.json({
+
       ok: true,
 
       message:
@@ -748,6 +886,7 @@ app.get(
   "/",
 
   (req, res) => {
+
     res.sendFile(
       path.join(
         __dirname,
@@ -763,7 +902,9 @@ app.get(
 
 app.use(
   (req, res) => {
+
     res.status(404).json({
+
       ok: false,
 
       error:
@@ -781,12 +922,14 @@ app.use(
 
 app.use(
   (error, req, res, next) => {
+
     console.error(
       "SERVER ERROR:",
       error
     );
 
     res.status(500).json({
+
       ok: false,
 
       error:
@@ -797,21 +940,16 @@ app.use(
 );
 
 // ============================================================
-// STARTUP VALIDATION
-// ============================================================
-if (!SMTP_USER || !SMTP_PASS) {
-  console.warn("WARNING: Gmail SMTP credentials are not configured. Set SMTP_USER + SMTP_PASS (or GMAIL_USER + GMAIL_APP_PASSWORD) in Render Environment.");
-}
-
-// ============================================================
 // START SERVER
 // ============================================================
 
 app.listen(
   PORT,
+
   "0.0.0.0",
 
-  () => {
+  async () => {
+
     console.log(
       "========================================"
     );
@@ -829,21 +967,22 @@ app.listen(
     );
 
     console.log(
-      `SMTP Host: ${
-        SMTP_HOST
-      }`
+      `SMTP Host: ${SMTP_HOST}`
     );
 
     console.log(
-      `SMTP Port: ${
-        SMTP_PORT
-      }`
+      `SMTP Port: ${SMTP_PORT}`
     );
 
     console.log(
       `SMTP User: ${
-        SMTP_USER ||
-        "NOT SET"
+        SMTP_USER || "NOT SET"
+      }`
+    );
+
+    console.log(
+      `MAIL_FROM: ${
+        MAIL_FROM || "NOT SET"
       }`
     );
 
@@ -864,21 +1003,42 @@ app.listen(
       "========================================"
     );
 
+    // ----------------------------------------------------------
+    // Verify SMTP when server starts
+    // ----------------------------------------------------------
+
     if (SMTP_USER && SMTP_PASS) {
-      transporter.verify()
-        .then(() => {
-          console.log("Gmail SMTP verification: SUCCESS");
-        })
-        .catch((error) => {
-          console.error("Gmail SMTP verification: FAILED");
-          console.error("SMTP error code:", error.code || "unknown");
-          console.error("SMTP error:", error.message || "unknown error");
-          if (error.response) {
-            console.error("SMTP response:", error.response);
-          }
-        });
+
+      try {
+
+        await transporter.verify();
+
+        console.log(
+          "Gmail SMTP verification: SUCCESS"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Gmail SMTP verification: FAILED"
+        );
+
+        console.error(
+          "SMTP Error:",
+          error.message
+        );
+
+        console.error(
+          "SMTP Code:",
+          error.code || "N/A"
+        );
+      }
+
     } else {
-      console.error("Gmail SMTP verification skipped: SMTP credentials are missing");
+
+      console.error(
+        "Gmail SMTP verification skipped: SMTP credentials missing"
+      );
     }
   }
 );
