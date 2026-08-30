@@ -1,11 +1,11 @@
 // ============================================================
-// AttendXStudent - Complete Server
+// AttendXStudent - Gmail API Server
+// SMTP COMPLETELY REMOVED
 // ============================================================
 
 require("dotenv").config();
 
 const express = require("express");
-const nodemailer = require("nodemailer");
 const path = require("path");
 const session = require("express-session");
 const passport = require("passport");
@@ -14,26 +14,43 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const app = express();
 
 // ============================================================
-// PORT
+// CONFIG
 // ============================================================
 
 const PORT = Number(process.env.PORT || 3000);
 
-// ============================================================
-// ENVIRONMENT
-// ============================================================
+const IS_PRODUCTION =
+  process.env.NODE_ENV === "production";
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const GOOGLE_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID || "";
 
-// ============================================================
-// GOOGLE CALLBACK URL
-// ============================================================
+const GOOGLE_CLIENT_SECRET =
+  process.env.GOOGLE_CLIENT_SECRET || "";
 
 const GOOGLE_CALLBACK_URL =
   process.env.GOOGLE_CALLBACK_URL ||
   (IS_PRODUCTION
     ? "https://attendxstudent.onrender.com/auth/google/callback"
     : "http://localhost:3000/auth/google/callback");
+
+const GMAIL_CALLBACK_URL =
+  process.env.GMAIL_CALLBACK_URL ||
+  (IS_PRODUCTION
+    ? "https://attendxstudent.onrender.com/auth/google/gmail/callback"
+    : "http://localhost:3000/auth/google/gmail/callback");
+
+const GMAIL_USER =
+  process.env.GMAIL_USER ||
+  "shantisingh6666@gmail.com";
+
+const GMAIL_REFRESH_TOKEN =
+  process.env.GMAIL_REFRESH_TOKEN || "";
+
+// Gmail API scope.
+// This allows sending mail.
+const GMAIL_SCOPE =
+  "https://www.googleapis.com/auth/gmail.send";
 
 // ============================================================
 // MIDDLEWARE
@@ -47,17 +64,9 @@ app.use(
   })
 );
 
-// ============================================================
-// RENDER / PROXY SUPPORT
-// ============================================================
-
 if (IS_PRODUCTION) {
   app.set("trust proxy", 1);
 }
-
-// ============================================================
-// STATIC FRONTEND
-// ============================================================
 
 app.use(express.static(__dirname));
 
@@ -79,7 +88,8 @@ app.use(
       secure: IS_PRODUCTION,
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge:
+        24 * 60 * 60 * 1000,
     },
   })
 );
@@ -89,23 +99,25 @@ app.use(
 // ============================================================
 
 app.use(passport.initialize());
+
 app.use(passport.session());
 
 // ============================================================
-// GOOGLE OAUTH CONFIGURATION
+// GOOGLE LOGIN
 // ============================================================
 
 if (
-  process.env.GOOGLE_CLIENT_ID &&
-  process.env.GOOGLE_CLIENT_SECRET
+  GOOGLE_CLIENT_ID &&
+  GOOGLE_CLIENT_SECRET
 ) {
   passport.use(
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientID:
+          GOOGLE_CLIENT_ID,
 
         clientSecret:
-          process.env.GOOGLE_CLIENT_SECRET,
+          GOOGLE_CLIENT_SECRET,
 
         callbackURL:
           GOOGLE_CALLBACK_URL,
@@ -125,10 +137,12 @@ if (
               profile.displayName || "",
 
             email:
-              profile.emails?.[0]?.value || "",
+              profile.emails?.[0]?.value ||
+              "",
 
             photo:
-              profile.photos?.[0]?.value || "",
+              profile.photos?.[0]?.value ||
+              "",
           };
 
           console.log(
@@ -136,16 +150,21 @@ if (
             user.email
           );
 
-          return done(null, user);
+          return done(
+            null,
+            user
+          );
 
         } catch (error) {
-
           console.error(
-            "Google OAuth error:",
+            "Google login error:",
             error
           );
 
-          return done(error, null);
+          return done(
+            error,
+            null
+          );
         }
       }
     )
@@ -158,7 +177,7 @@ if (
 } else {
 
   console.log(
-    "WARNING: Google OAuth credentials are missing."
+    "WARNING: Google OAuth credentials missing"
   );
 }
 
@@ -179,7 +198,7 @@ passport.deserializeUser(
 );
 
 // ============================================================
-// GOOGLE LOGIN
+// NORMAL GOOGLE LOGIN
 // ============================================================
 
 app.get(
@@ -188,16 +207,14 @@ app.get(
   (req, res, next) => {
 
     if (
-      !process.env.GOOGLE_CLIENT_ID ||
-      !process.env.GOOGLE_CLIENT_SECRET
+      !GOOGLE_CLIENT_ID ||
+      !GOOGLE_CLIENT_SECRET
     ) {
-
-      return res.status(500).send(`
-        <h2>Google Login is not configured</h2>
-        <p>
-          GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing.
-        </p>
-      `);
+      return res
+        .status(500)
+        .send(
+          "Google OAuth is not configured."
+        );
     }
 
     next();
@@ -215,7 +232,7 @@ app.get(
 );
 
 // ============================================================
-// GOOGLE CALLBACK
+// NORMAL GOOGLE CALLBACK
 // ============================================================
 
 app.get(
@@ -243,6 +260,276 @@ app.get(
 );
 
 // ============================================================
+// GMAIL API AUTHORIZATION
+// ============================================================
+//
+// Open this URL ONCE:
+// /auth/google/gmail
+//
+// This asks Google for Gmail send permission.
+// After approval, callback gives a refresh token.
+// Put that token into Render as:
+// GMAIL_REFRESH_TOKEN
+//
+// ============================================================
+
+app.get(
+  "/auth/google/gmail",
+
+  (req, res) => {
+
+    if (
+      !GOOGLE_CLIENT_ID ||
+      !GOOGLE_CLIENT_SECRET
+    ) {
+      return res
+        .status(500)
+        .send(
+          "Google OAuth credentials are missing."
+        );
+    }
+
+    const params =
+      new URLSearchParams({
+
+        client_id:
+          GOOGLE_CLIENT_ID,
+
+        redirect_uri:
+          GMAIL_CALLBACK_URL,
+
+        response_type:
+          "code",
+
+        access_type:
+          "offline",
+
+        prompt:
+          "consent",
+
+        scope:
+          GMAIL_SCOPE,
+      });
+
+    const url =
+      "https://accounts.google.com/o/oauth2/v2/auth?" +
+      params.toString();
+
+    res.redirect(url);
+  }
+);
+
+// ============================================================
+// GMAIL OAUTH CALLBACK
+// ============================================================
+
+app.get(
+  "/auth/google/gmail/callback",
+
+  async (req, res) => {
+
+    try {
+
+      const code =
+        req.query.code;
+
+      if (!code) {
+        return res
+          .status(400)
+          .send(
+            "Google authorization code missing."
+          );
+      }
+
+      // --------------------------------------------------------
+      // Exchange authorization code for tokens
+      // --------------------------------------------------------
+
+      const tokenResponse =
+        await fetch(
+          "https://oauth2.googleapis.com/token",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded",
+            },
+
+            body:
+              new URLSearchParams({
+
+                code: code,
+
+                client_id:
+                  GOOGLE_CLIENT_ID,
+
+                client_secret:
+                  GOOGLE_CLIENT_SECRET,
+
+                redirect_uri:
+                  GMAIL_CALLBACK_URL,
+
+                grant_type:
+                  "authorization_code",
+              }).toString(),
+          }
+        );
+
+      const tokens =
+        await tokenResponse.json();
+
+      if (
+        !tokenResponse.ok
+      ) {
+
+        console.error(
+          "Google token error:",
+          tokens
+        );
+
+        return res
+          .status(500)
+          .send(`
+            <h2>Google Authorization Failed</h2>
+            <pre>${escapeHtml(
+              JSON.stringify(
+                tokens,
+                null,
+                2
+              )
+            )}</pre>
+          `);
+      }
+
+      if (!tokens.refresh_token) {
+
+        return res
+          .status(500)
+          .send(`
+            <h2>Refresh Token Not Received</h2>
+            <p>
+              Google did not return a refresh token.
+              Please revoke the previous permission and
+              open /auth/google/gmail again.
+            </p>
+          `);
+      }
+
+      console.log(
+        "Gmail OAuth authorization successful."
+      );
+
+      // --------------------------------------------------------
+      // IMPORTANT
+      // --------------------------------------------------------
+      //
+      // The refresh token must be copied into Render.
+      //
+      // We intentionally display it once here.
+      //
+      // Do NOT share it with anyone.
+      //
+      // --------------------------------------------------------
+
+      res.send(`
+        <html>
+          <head>
+            <title>AttendXStudent Gmail Setup</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+              }
+
+              textarea {
+                width: 100%;
+                height: 120px;
+                font-size: 14px;
+              }
+
+              .box {
+                padding: 20px;
+                background: #f5f5f5;
+                border-radius: 10px;
+              }
+
+              code {
+                background: #eee;
+                padding: 3px 6px;
+              }
+            </style>
+          </head>
+
+          <body>
+
+            <h1>Gmail Authorization Successful ✅</h1>
+
+            <p>
+              Copy the refresh token below.
+            </p>
+
+            <div class="box">
+
+              <textarea readonly>${escapeHtml(
+                tokens.refresh_token
+              )}</textarea>
+
+            </div>
+
+            <h3>Next step</h3>
+
+            <p>
+              Render → Environment → Add Variable
+            </p>
+
+            <p>
+              Key:
+            </p>
+
+            <code>
+              GMAIL_REFRESH_TOKEN
+            </code>
+
+            <p>
+              Value:
+              paste the refresh token above.
+            </p>
+
+            <p>
+              After saving the variable,
+              redeploy your Render service.
+            </p>
+
+            <p>
+              <b>
+                Do not share this refresh token.
+              </b>
+            </p>
+
+          </body>
+        </html>
+      `);
+
+    } catch (error) {
+
+      console.error(
+        "Gmail OAuth callback error:",
+        error
+      );
+
+      res
+        .status(500)
+        .send(
+          "Gmail authorization failed."
+        );
+    }
+  }
+);
+
+// ============================================================
 // CURRENT USER
 // ============================================================
 
@@ -251,7 +538,9 @@ app.get(
 
   (req, res) => {
 
-    if (!req.isAuthenticated()) {
+    if (
+      !req.isAuthenticated()
+    ) {
 
       return res.json({
         loggedIn: false,
@@ -260,8 +549,11 @@ app.get(
     }
 
     res.json({
+
       loggedIn: true,
-      user: req.user,
+
+      user:
+        req.user,
     });
   }
 );
@@ -275,188 +567,284 @@ app.get(
 
   (req, res) => {
 
-    req.logout((error) => {
+    req.logout(
+      (error) => {
 
-      if (error) {
+        if (error) {
 
-        console.error(
-          "Logout error:",
-          error
-        );
+          console.error(
+            "Logout error:",
+            error
+          );
 
-        return res.status(500).json({
-          ok: false,
-          error: "Logout failed",
-        });
-      }
-
-      req.session.destroy(
-        (sessionError) => {
-
-          if (sessionError) {
-
-            console.error(
-              "Session destroy error:",
-              sessionError
-            );
-          }
-
-          res.redirect("/");
+          return res
+            .status(500)
+            .json({
+              ok: false,
+              error:
+                "Logout failed",
+            });
         }
-      );
-    });
+
+        req.session.destroy(
+          () => {
+            res.redirect("/");
+          }
+        );
+      }
+    );
   }
 );
 
 // ============================================================
-// GMAIL SMTP CONFIGURATION
+// HTML ESCAPE
 // ============================================================
 
-const SMTP_USER =
-  process.env.SMTP_USER ||
-  process.env.GMAIL_USER ||
-  "";
+function escapeHtml(value) {
 
-const SMTP_PASS =
-  String(
-    process.env.SMTP_PASS ||
-    process.env.GMAIL_APP_PASSWORD ||
-    ""
-  ).replace(/\s/g, "");
-
-const SMTP_HOST =
-  process.env.SMTP_HOST ||
-  "smtp.gmail.com";
-
-const SMTP_PORT =
-  Number(
-    process.env.SMTP_PORT || 587
-  );
-
-const SMTP_SECURE =
-  String(
-    process.env.SMTP_SECURE || "false"
-  ).toLowerCase() === "true";
-
-// IMPORTANT:
-// Always use process.env.MAIL_FROM or the safe fallback.
-// Never use MAIL_FROM directly.
-
-const MAIL_FROM =
-  process.env.MAIL_FROM ||
-  SMTP_USER;
-
-// ============================================================
-// NODEMAILER TRANSPORTER
-// ============================================================
-
-const transporter =
-  nodemailer.createTransport({
-
-    host: SMTP_HOST,
-
-    port: SMTP_PORT,
-
-    secure: SMTP_SECURE,
-
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-
-    connectionTimeout: 20000,
-
-    greetingTimeout: 20000,
-
-    socketTimeout: 30000,
-  });
-
-// ============================================================
-// RECIPIENT HELPER
-// ============================================================
-
-function getRecipient(body) {
-
-  return (
-    body?.to ||
-    body?.email ||
-    body?.recipient ||
-    body?.recipientEmail ||
-    body?.studentEmail ||
-    body?.student?.email ||
-    ""
-  ).trim();
+  return String(value)
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 // ============================================================
-// SMTP CONFIG CHECK
+// CREATE MIME EMAIL
 // ============================================================
 
-function smtpConfigError() {
+function createMimeMessage({
+  from,
+  to,
+  subject,
+  text,
+}) {
 
-  if (!SMTP_USER) {
-    return "SMTP_USER / GMAIL_USER is missing";
-  }
+  const encodedSubject =
+    `=?UTF-8?B?${Buffer
+      .from(subject, "utf8")
+      .toString("base64")}?=`;
 
-  if (!SMTP_PASS) {
-    return "SMTP_PASS / GMAIL_APP_PASSWORD is missing";
-  }
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${encodedSubject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    text,
+  ].join("\r\n");
 
-  return null;
+  return Buffer
+    .from(message, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 // ============================================================
-// TEST SMTP CONNECTION
+// GET GMAIL ACCESS TOKEN
+// ============================================================
+
+async function getGmailAccessToken() {
+
+  if (
+    !GMAIL_REFRESH_TOKEN
+  ) {
+
+    throw new Error(
+      "GMAIL_REFRESH_TOKEN is missing in Render Environment Variables."
+    );
+  }
+
+  const response =
+    await fetch(
+      "https://oauth2.googleapis.com/token",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+        },
+
+        body:
+          new URLSearchParams({
+
+            client_id:
+              GOOGLE_CLIENT_ID,
+
+            client_secret:
+              GOOGLE_CLIENT_SECRET,
+
+            refresh_token:
+              GMAIL_REFRESH_TOKEN,
+
+            grant_type:
+              "refresh_token",
+
+          }).toString(),
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (
+    !response.ok
+  ) {
+
+    console.error(
+      "Access token refresh failed:",
+      data
+    );
+
+    throw new Error(
+      data.error_description ||
+      data.error ||
+      "Unable to get Gmail access token"
+    );
+  }
+
+  return data.access_token;
+}
+
+// ============================================================
+// SEND EMAIL USING GMAIL API
+// ============================================================
+
+async function sendGmailEmail({
+  to,
+  subject,
+  text,
+}) {
+
+  const accessToken =
+    await getGmailAccessToken();
+
+  const raw =
+    createMimeMessage({
+
+      from:
+        GMAIL_USER,
+
+      to:
+        to,
+
+      subject:
+        subject,
+
+      text:
+        text,
+    });
+
+  const response =
+    await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+
+        method: "POST",
+
+        headers: {
+
+          Authorization:
+            `Bearer ${accessToken}`,
+
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            raw: raw,
+          }),
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (
+    !response.ok
+  ) {
+
+    console.error(
+      "Gmail API error:",
+      data
+    );
+
+    throw new Error(
+      data.error?.message ||
+      "Gmail API failed to send email"
+    );
+  }
+
+  return data;
+}
+
+// ============================================================
+// TEST GMAIL API
 // ============================================================
 
 app.get(
-  "/api/test-smtp",
+  "/api/test-gmail",
 
   async (req, res) => {
 
     try {
 
-      const configError =
-        smtpConfigError();
-
-      if (configError) {
+      if (
+        !GMAIL_REFRESH_TOKEN
+      ) {
 
         return res.status(500).json({
+
           ok: false,
-          error: configError,
+
+          error:
+            "GMAIL_REFRESH_TOKEN is missing.",
         });
       }
 
-      await transporter.verify();
-
-      console.log(
-        "Gmail SMTP connection successful"
-      );
+      const accessToken =
+        await getGmailAccessToken();
 
       return res.json({
 
         ok: true,
 
         message:
-          "Gmail SMTP connection is working",
+          "Gmail API authorization is working.",
 
-        user:
-          SMTP_USER,
+        accessTokenReceived:
+          Boolean(accessToken),
 
-        host:
-          SMTP_HOST,
-
-        port:
-          SMTP_PORT,
-
-        secure:
-          SMTP_SECURE,
+        sender:
+          GMAIL_USER,
       });
 
     } catch (error) {
 
       console.error(
-        "SMTP verification failed:",
+        "Gmail API test failed:",
         error
       );
 
@@ -465,14 +853,7 @@ app.get(
         ok: false,
 
         error:
-          error.message ||
-          "SMTP verification failed",
-
-        code:
-          error.code || null,
-
-        response:
-          error.response || null,
+          error.message,
       });
     }
   }
@@ -489,22 +870,6 @@ app.post(
 
     try {
 
-      console.log(
-        "TEST EMAIL BODY:",
-        req.body
-      );
-
-      const configError =
-        smtpConfigError();
-
-      if (configError) {
-
-        return res.status(500).json({
-          ok: false,
-          error: configError,
-        });
-      }
-
       const to =
         getRecipient(req.body);
 
@@ -519,11 +884,8 @@ app.post(
         });
       }
 
-      const info =
-        await transporter.sendMail({
-
-          from:
-            MAIL_FROM,
+      const result =
+        await sendGmailEmail({
 
           to:
             to,
@@ -533,12 +895,12 @@ app.post(
 
           text:
             "This is a test email from AttendXStudent.\n\n" +
-            "If you received this email, Gmail SMTP is working correctly.",
+            "If you received this email, Gmail API is working correctly.",
         });
 
       console.log(
-        "Test email sent:",
-        info.messageId
+        "Test Gmail email sent:",
+        result.id
       );
 
       return res.json({
@@ -549,13 +911,13 @@ app.post(
           "Test email sent successfully",
 
         messageId:
-          info.messageId,
+          result.id,
       });
 
     } catch (error) {
 
       console.error(
-        "Test email failed:",
+        "Test Gmail email failed:",
         error
       );
 
@@ -564,21 +926,14 @@ app.post(
         ok: false,
 
         error:
-          error.message ||
-          "Test email failed",
-
-        code:
-          error.code || null,
-
-        response:
-          error.response || null,
+          error.message,
       });
     }
   }
 );
 
 // ============================================================
-// SEND ABSENT STUDENT REMINDER
+// ABSENT REMINDER
 // ============================================================
 
 app.post(
@@ -593,51 +948,8 @@ app.post(
         req.body
       );
 
-      // --------------------------------------------------------
-      // Check SMTP configuration
-      // --------------------------------------------------------
-
-      const configError =
-        smtpConfigError();
-
-      if (configError) {
-
-        return res.status(500).json({
-
-          ok: false,
-
-          error:
-            configError,
-        });
-      }
-
-      // --------------------------------------------------------
-      // Get recipient
-      // --------------------------------------------------------
-
       const to =
         getRecipient(req.body);
-
-      // --------------------------------------------------------
-      // Get subject
-      // --------------------------------------------------------
-
-      const subject =
-        req.body?.subject ||
-        "AttendXStudent Attendance Reminder";
-
-      // --------------------------------------------------------
-      // Get email body
-      // --------------------------------------------------------
-
-      const body =
-        req.body?.body ||
-        req.body?.message ||
-        "You were marked Absent for today's class.";
-
-      // --------------------------------------------------------
-      // Validate recipient
-      // --------------------------------------------------------
 
       if (!to) {
 
@@ -647,23 +959,25 @@ app.post(
 
           error:
             "Recipient email is required",
-
-          receivedBody:
-            req.body,
         });
       }
 
-      // --------------------------------------------------------
-      // SEND EMAIL
-      // --------------------------------------------------------
+      const subject =
+        req.body?.subject ||
+        "Attendance Reminder – AttendXStudent";
+
+      const body =
+        req.body?.body ||
+        req.body?.message ||
+        "You were marked Absent for today's class.";
 
       console.log(
-        "Preparing to send absent reminder..."
+        "Preparing Gmail API email..."
       );
 
       console.log(
         "From:",
-        MAIL_FROM
+        GMAIL_USER
       );
 
       console.log(
@@ -676,13 +990,8 @@ app.post(
         subject
       );
 
-      const info =
-        await transporter.sendMail({
-
-          // IMPORTANT FIX:
-          // This uses the actual variable value.
-          from:
-            MAIL_FROM,
+      const result =
+        await sendGmailEmail({
 
           to:
             to,
@@ -694,17 +1003,13 @@ app.post(
             body,
         });
 
-      // --------------------------------------------------------
-      // SUCCESS
-      // --------------------------------------------------------
-
       console.log(
         `Reminder email sent successfully to ${to}`
       );
 
       console.log(
-        "Message ID:",
-        info.messageId
+        "Gmail Message ID:",
+        result.id
       );
 
       return res.json({
@@ -715,14 +1020,10 @@ app.post(
           "Email sent successfully",
 
         messageId:
-          info.messageId,
+          result.id,
       });
 
     } catch (error) {
-
-      // --------------------------------------------------------
-      // ERROR
-      // --------------------------------------------------------
 
       console.error(
         "Reminder email failed:",
@@ -736,12 +1037,6 @@ app.post(
         error:
           error.message ||
           "Email sending failed",
-
-        code:
-          error.code || null,
-
-        response:
-          error.response || null,
       });
     }
   }
@@ -758,36 +1053,8 @@ app.post(
 
     try {
 
-      console.log(
-        "OLD REMINDER BODY:",
-        req.body
-      );
-
-      const configError =
-        smtpConfigError();
-
-      if (configError) {
-
-        return res.status(500).json({
-
-          ok: false,
-
-          error:
-            configError,
-        });
-      }
-
       const to =
         getRecipient(req.body);
-
-      const subject =
-        req.body?.subject ||
-        "AttendXStudent Attendance Reminder";
-
-      const body =
-        req.body?.body ||
-        req.body?.message ||
-        "You were marked Absent for today's class.";
 
       if (!to) {
 
@@ -797,17 +1064,20 @@ app.post(
 
           error:
             "Recipient email is required",
-
-          receivedBody:
-            req.body,
         });
       }
 
-      const info =
-        await transporter.sendMail({
+      const subject =
+        req.body?.subject ||
+        "Attendance Reminder – AttendXStudent";
 
-          from:
-            MAIL_FROM,
+      const body =
+        req.body?.body ||
+        req.body?.message ||
+        "You were marked Absent for today's class.";
+
+      const result =
+        await sendGmailEmail({
 
           to:
             to,
@@ -819,10 +1089,6 @@ app.post(
             body,
         });
 
-      console.log(
-        `Reminder sent to ${to}`
-      );
-
       return res.json({
 
         ok: true,
@@ -831,13 +1097,13 @@ app.post(
           "Email sent successfully",
 
         messageId:
-          info.messageId,
+          result.id,
       });
 
     } catch (error) {
 
       console.error(
-        "Reminder email failed:",
+        "Old reminder failed:",
         error
       );
 
@@ -848,12 +1114,6 @@ app.post(
         error:
           error.message ||
           "Email sending failed",
-
-        code:
-          error.code || null,
-
-        response:
-          error.response || null,
       });
     }
   }
@@ -874,12 +1134,20 @@ app.get(
 
       message:
         "AttendXStudent server is running",
+
+      emailMethod:
+        "Gmail API",
+
+      gmailConfigured:
+        Boolean(
+          GMAIL_REFRESH_TOKEN
+        ),
     });
   }
 );
 
 // ============================================================
-// ROOT PAGE
+// ROOT
 // ============================================================
 
 app.get(
@@ -897,7 +1165,7 @@ app.get(
 );
 
 // ============================================================
-// 404 HANDLER
+// 404
 // ============================================================
 
 app.use(
@@ -921,7 +1189,12 @@ app.use(
 // ============================================================
 
 app.use(
-  (error, req, res, next) => {
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
 
     console.error(
       "SERVER ERROR:",
@@ -945,10 +1218,9 @@ app.use(
 
 app.listen(
   PORT,
-
   "0.0.0.0",
 
-  async () => {
+  () => {
 
     console.log(
       "========================================"
@@ -967,29 +1239,25 @@ app.listen(
     );
 
     console.log(
-      `SMTP Host: ${SMTP_HOST}`
+      "Email Method: Gmail API"
     );
 
     console.log(
-      `SMTP Port: ${SMTP_PORT}`
+      `Gmail User: ${GMAIL_USER}`
     );
 
     console.log(
-      `SMTP User: ${
-        SMTP_USER || "NOT SET"
-      }`
-    );
-
-    console.log(
-      `MAIL_FROM: ${
-        MAIL_FROM || "NOT SET"
+      `Gmail Refresh Token: ${
+        GMAIL_REFRESH_TOKEN
+          ? "CONFIGURED"
+          : "NOT CONFIGURED"
       }`
     );
 
     console.log(
       `Google OAuth: ${
-        process.env.GOOGLE_CLIENT_ID &&
-        process.env.GOOGLE_CLIENT_SECRET
+        GOOGLE_CLIENT_ID &&
+        GOOGLE_CLIENT_SECRET
           ? "CONFIGURED"
           : "NOT CONFIGURED"
       }`
@@ -1000,45 +1268,11 @@ app.listen(
     );
 
     console.log(
-      "========================================"
+      `Gmail Callback: ${GMAIL_CALLBACK_URL}`
     );
 
-    // ----------------------------------------------------------
-    // Verify SMTP when server starts
-    // ----------------------------------------------------------
-
-    if (SMTP_USER && SMTP_PASS) {
-
-      try {
-
-        await transporter.verify();
-
-        console.log(
-          "Gmail SMTP verification: SUCCESS"
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Gmail SMTP verification: FAILED"
-        );
-
-        console.error(
-          "SMTP Error:",
-          error.message
-        );
-
-        console.error(
-          "SMTP Code:",
-          error.code || "N/A"
-        );
-      }
-
-    } else {
-
-      console.error(
-        "Gmail SMTP verification skipped: SMTP credentials missing"
-      );
-    }
+    console.log(
+      "========================================"
+    );
   }
 );
