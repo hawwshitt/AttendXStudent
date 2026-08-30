@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const nodemailer = require("nodemailer");
 const path = require("path");
 
 const app = express();
@@ -14,25 +15,37 @@ const PORT = Number(process.env.PORT || 3000);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Frontend files
+// Serve frontend files
 app.use(express.static(__dirname));
 
 
 // ==================================================
-// RESEND CONFIGURATION
+// GMAIL SMTP CONFIGURATION
 // ==================================================
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
 
-// Resend testing sender
-// Later, when you verify your own domain in Resend,
-// you can put your own email in MAIL_FROM.
-const MAIL_FROM =
-  process.env.MAIL_FROM || "onboarding@resend.dev";
+  port: Number(process.env.SMTP_PORT || 587),
+
+  secure:
+    String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+
+  auth: {
+    user: process.env.SMTP_USER,
+
+    // Gmail App Password
+    pass: String(process.env.SMTP_PASS || "").replace(/\s/g, ""),
+  },
+
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 30000,
+});
 
 
 // ==================================================
-// HELPER - GET RECIPIENT
+// HELPER FUNCTION
 // ==================================================
 
 function getRecipient(body) {
@@ -49,81 +62,46 @@ function getRecipient(body) {
 
 
 // ==================================================
-// HELPER - SEND EMAIL USING RESEND
-// ==================================================
-
-async function sendEmail({ to, subject, text }) {
-
-  if (!RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is missing");
-  }
-
-  const response = await fetch(
-    "https://api.resend.com/emails",
-    {
-      method: "POST",
-
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-
-      body: JSON.stringify({
-        from: MAIL_FROM,
-        to: [to],
-        subject: subject,
-        text: text
-      })
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    const error = new Error(
-      data?.message ||
-      data?.error ||
-      "Resend email failed"
-    );
-
-    error.status = response.status;
-    error.resendData = data;
-
-    throw error;
-  }
-
-  return data;
-}
-
-
-// ==================================================
-// RESEND CONNECTION TEST
+// TEST SMTP CONNECTION
 // ==================================================
 
 app.get("/api/test-smtp", async (req, res) => {
-
   try {
-
-    if (!RESEND_API_KEY) {
+    // Check Gmail username
+    if (!process.env.SMTP_USER) {
       return res.status(500).json({
         ok: false,
-        error: "RESEND_API_KEY is missing in Render Environment"
+        error: "SMTP_USER is missing",
       });
     }
 
+    // Check Gmail App Password
+    if (!process.env.SMTP_PASS) {
+      return res.status(500).json({
+        ok: false,
+        error: "SMTP_PASS is missing",
+      });
+    }
+
+    // Test Gmail connection
+    await transporter.verify();
+
+    console.log("Gmail SMTP connection successful");
+
     res.json({
       ok: true,
-      message: "Resend API key is configured successfully",
-      provider: "Resend"
+      message: "Gmail SMTP connection is working",
+      user: process.env.SMTP_USER,
     });
 
   } catch (error) {
-
-    console.error("Resend test failed:", error);
+    console.error("SMTP verification failed:", error);
 
     res.status(500).json({
       ok: false,
-      error: error.message
+      error: error.message,
+      code: error.code || null,
+      response: error.response || null,
     });
   }
 });
@@ -134,18 +112,24 @@ app.get("/api/test-smtp", async (req, res) => {
 // ==================================================
 
 app.post("/api/test-email", async (req, res) => {
-
   try {
-
     console.log("TEST EMAIL BODY:", req.body);
 
     const to = getRecipient(req.body);
 
-    // Check API key
-    if (!RESEND_API_KEY) {
+    // Check Gmail username
+    if (!process.env.SMTP_USER) {
       return res.status(500).json({
         ok: false,
-        error: "RESEND_API_KEY is missing"
+        error: "SMTP_USER is missing",
+      });
+    }
+
+    // Check Gmail App Password
+    if (!process.env.SMTP_PASS) {
+      return res.status(500).json({
+        ok: false,
+        error: "SMTP_PASS is missing",
       });
     }
 
@@ -153,12 +137,13 @@ app.post("/api/test-email", async (req, res) => {
     if (!to) {
       return res.status(400).json({
         ok: false,
-        error: "Recipient email is required"
+        error: "Recipient email is required",
       });
     }
 
-    // Send email
-    const result = await sendEmail({
+    // Send test email
+    const info = await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
 
       to: to,
 
@@ -166,26 +151,25 @@ app.post("/api/test-email", async (req, res) => {
 
       text:
         "This is a test email from AttendXStudent.\n\n" +
-        "If you received this email, Resend is working correctly."
+        "If you received this email, Gmail SMTP is working correctly.",
     });
 
-    console.log("Test email sent:", result);
+    console.log("Test email sent:", info.messageId);
 
     res.json({
       ok: true,
       message: "Test email sent successfully",
-      data: result
+      messageId: info.messageId,
     });
 
   } catch (error) {
-
     console.error("Test email failed:", error);
 
     res.status(500).json({
       ok: false,
       error: error.message,
-      status: error.status || null,
-      resendData: error.resendData || null
+      code: error.code || null,
+      response: error.response || null,
     });
   }
 });
@@ -196,13 +180,8 @@ app.post("/api/test-email", async (req, res) => {
 // ==================================================
 
 app.post("/api/send-absent-reminder", async (req, res) => {
-
   try {
-
-    console.log(
-      "ABSENT REMINDER BODY:",
-      req.body
-    );
+    console.log("ABSENT REMINDER BODY:", req.body);
 
     const to = getRecipient(req.body);
 
@@ -215,86 +194,70 @@ app.post("/api/send-absent-reminder", async (req, res) => {
       req.body?.message ||
       "You were marked Absent for today's class.";
 
-
     // ----------------------------------------------
-    // CHECK RESEND API KEY
+    // Check Gmail credentials
     // ----------------------------------------------
 
-    if (!RESEND_API_KEY) {
-
+    if (!process.env.SMTP_USER) {
       return res.status(500).json({
         ok: false,
-        error: "RESEND_API_KEY is missing"
+        error: "SMTP_USER is missing",
       });
     }
 
+    if (!process.env.SMTP_PASS) {
+      return res.status(500).json({
+        ok: false,
+        error: "SMTP_PASS is missing",
+      });
+    }
 
     // ----------------------------------------------
-    // CHECK RECIPIENT
+    // Check recipient
     // ----------------------------------------------
 
     if (!to) {
-
       return res.status(400).json({
         ok: false,
         error: "Recipient email is required",
-        receivedBody: req.body
+        receivedBody: req.body,
       });
     }
 
-
     // ----------------------------------------------
-    // SEND EMAIL
+    // Send email through Gmail
     // ----------------------------------------------
 
-    const result = await sendEmail({
+    const info = await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
 
       to: to,
 
       subject: subject,
 
-      text: body
+      text: body,
     });
-
 
     console.log(
       `Reminder email sent successfully to ${to}`
     );
 
-    console.log(
-      "Resend response:",
-      result
-    );
-
+    console.log("Message ID:", info.messageId);
 
     res.json({
-
       ok: true,
-
       message: "Email sent successfully",
-
-      messageId:
-        result?.id || null
+      messageId: info.messageId,
     });
 
   } catch (error) {
-
-    console.error(
-      "Reminder email failed:",
-      error
-    );
+    console.error("Reminder email failed:", error);
 
     res.status(500).json({
-
       ok: false,
-
       error: error.message,
-
-      status:
-        error.status || null,
-
-      resendData:
-        error.resendData || null
+      code: error.code || null,
+      response: error.response || null,
     });
   }
 });
@@ -305,13 +268,8 @@ app.post("/api/send-absent-reminder", async (req, res) => {
 // ==================================================
 
 app.post("/api/send-reminder", async (req, res) => {
-
   try {
-
-    console.log(
-      "OLD REMINDER BODY:",
-      req.body
-    );
+    console.log("OLD REMINDER BODY:", req.body);
 
     const to = getRecipient(req.body);
 
@@ -324,81 +282,50 @@ app.post("/api/send-reminder", async (req, res) => {
       req.body?.message ||
       "You were marked Absent for today's class.";
 
-
-    // ----------------------------------------------
-    // CHECK RESEND API KEY
-    // ----------------------------------------------
-
-    if (!RESEND_API_KEY) {
-
+    // Check Gmail credentials
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
       return res.status(500).json({
         ok: false,
-        error: "RESEND_API_KEY is missing"
+        error: "SMTP_USER or SMTP_PASS is missing",
       });
     }
 
-
-    // ----------------------------------------------
-    // CHECK RECIPIENT
-    // ----------------------------------------------
-
+    // Check recipient
     if (!to) {
-
       return res.status(400).json({
         ok: false,
         error: "Recipient email is required",
-        receivedBody: req.body
+        receivedBody: req.body,
       });
     }
 
-
-    // ----------------------------------------------
-    // SEND EMAIL
-    // ----------------------------------------------
-
-    const result = await sendEmail({
+    // Send email
+    const info = await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
 
       to: to,
 
       subject: subject,
 
-      text: body
+      text: body,
     });
 
-
-    console.log(
-      `Reminder sent successfully to ${to}`
-    );
-
+    console.log(`Reminder sent to ${to}`);
 
     res.json({
-
       ok: true,
-
       message: "Email sent successfully",
-
-      messageId:
-        result?.id || null
+      messageId: info.messageId,
     });
 
   } catch (error) {
-
-    console.error(
-      "Reminder email failed:",
-      error
-    );
+    console.error("Reminder email failed:", error);
 
     res.status(500).json({
-
       ok: false,
-
       error: error.message,
-
-      status:
-        error.status || null,
-
-      resendData:
-        error.resendData || null
+      code: error.code || null,
+      response: error.response || null,
     });
   }
 });
@@ -409,21 +336,10 @@ app.post("/api/send-reminder", async (req, res) => {
 // ==================================================
 
 app.get("/api/health", (req, res) => {
-
   res.json({
-
     ok: true,
-
-    message:
-      "AttendXStudent server is running",
-
-    emailProvider:
-      "Resend",
-
-    resendConfigured:
-      Boolean(RESEND_API_KEY)
+    message: "AttendXStudent server is running",
   });
-
 });
 
 
@@ -432,11 +348,7 @@ app.get("/api/health", (req, res) => {
 // ==================================================
 
 app.get("/", (req, res) => {
-
-  res.sendFile(
-    path.join(__dirname, "index.html")
-  );
-
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 
@@ -444,30 +356,24 @@ app.get("/", (req, res) => {
 // START SERVER
 // ==================================================
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(
+    `AttendXStudent running on port ${PORT}`
+  );
 
-    console.log(
-      `AttendXStudent running on port ${PORT}`
-    );
+  console.log(
+    `SMTP Host: ${process.env.SMTP_HOST || "smtp.gmail.com"}`
+  );
 
-    console.log(
-      `Email Provider: Resend`
-    );
+  console.log(
+    `SMTP Port: ${process.env.SMTP_PORT || "587"}`
+  );
 
-    console.log(
-      `Resend API Key: ${
-        RESEND_API_KEY
-          ? "CONFIGURED"
-          : "NOT SET"
-      }`
-    );
+  console.log(
+    `SMTP User: ${process.env.SMTP_USER || "NOT SET"}`
+  );
 
-    console.log(
-      `MAIL_FROM: ${MAIL_FROM}`
-    );
-
-  }
-);
+  console.log(
+    `MAIL FROM: ${process.env.MAIL_FROM || process.env.SMTP_USER || "NOT SET"}`
+  );
+});
