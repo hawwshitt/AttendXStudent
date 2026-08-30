@@ -293,37 +293,25 @@ app.get(
 // GMAIL SMTP CONFIGURATION
 // ============================================================
 
-const transporter =
-  nodemailer.createTransport({
-    host:
-      process.env.SMTP_HOST ||
-      "smtp.gmail.com",
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_SECURE = String(process.env.SMTP_SECURE ?? (SMTP_PORT === 465 ? "true" : "false")).toLowerCase() === "true";
+const SMTP_USER = process.env.SMTP_USER || process.env.GMAIL_USER || "";
+const SMTP_PASS = String(process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "").replace(/\s/g, "");
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
 
-    port: Number(
-      process.env.SMTP_PORT || 587
-    ),
-
-    secure:
-      String(
-        process.env.SMTP_SECURE || "false"
-      ).toLowerCase() === "true",
-
-    auth: {
-      user:
-        process.env.SMTP_USER,
-
-      pass:
-        String(
-          process.env.SMTP_PASS || ""
-        ).replace(/\s/g, ""),
-    },
-
-    connectionTimeout: 20000,
-
-    greetingTimeout: 20000,
-
-    socketTimeout: 30000,
-  });
+const transporter = nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
+  auth: {
+    user: SMTP_USER,
+    pass: SMTP_PASS,
+  },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 30000,
+});
 
 // ============================================================
 // RECIPIENT HELPER
@@ -350,14 +338,14 @@ app.get(
 
   async (req, res) => {
     try {
-      if (!process.env.SMTP_USER) {
+      if (!SMTP_USER) {
         return res.status(500).json({
           ok: false,
           error: "SMTP_USER is missing",
         });
       }
 
-      if (!process.env.SMTP_PASS) {
+      if (!SMTP_PASS) {
         return res.status(500).json({
           ok: false,
           error: "SMTP_PASS is missing",
@@ -377,7 +365,7 @@ app.get(
           "Gmail SMTP connection is working",
 
         user:
-          process.env.SMTP_USER,
+          SMTP_USER,
       });
     } catch (error) {
       console.error(
@@ -418,14 +406,14 @@ app.post(
       const to =
         getRecipient(req.body);
 
-      if (!process.env.SMTP_USER) {
+      if (!SMTP_USER) {
         return res.status(500).json({
           ok: false,
           error: "SMTP_USER is missing",
         });
       }
 
-      if (!process.env.SMTP_PASS) {
+      if (!SMTP_PASS) {
         return res.status(500).json({
           ok: false,
           error: "SMTP_PASS is missing",
@@ -443,8 +431,8 @@ app.post(
       const info =
         await transporter.sendMail({
           from:
-            process.env.MAIL_FROM ||
-            process.env.SMTP_USER,
+            MAIL_FROM ||
+            SMTP_USER,
 
           to: to,
 
@@ -518,7 +506,7 @@ app.post(
         req.body?.message ||
         "You were marked Absent for today's class.";
 
-      if (!process.env.SMTP_USER) {
+      if (!SMTP_USER) {
         return res.status(500).json({
           ok: false,
           error:
@@ -526,7 +514,7 @@ app.post(
         });
       }
 
-      if (!process.env.SMTP_PASS) {
+      if (!SMTP_PASS) {
         return res.status(500).json({
           ok: false,
           error:
@@ -549,8 +537,8 @@ app.post(
       const info =
         await transporter.sendMail({
           from:
-            process.env.MAIL_FROM ||
-            process.env.SMTP_USER,
+            MAIL_FROM ||
+            SMTP_USER,
 
           to: to,
 
@@ -626,8 +614,8 @@ app.post(
         "You were marked Absent for today's class.";
 
       if (
-        !process.env.SMTP_USER ||
-        !process.env.SMTP_PASS
+        !SMTP_USER ||
+        !SMTP_PASS
       ) {
         return res.status(500).json({
           ok: false,
@@ -652,8 +640,8 @@ app.post(
       const info =
         await transporter.sendMail({
           from:
-            process.env.MAIL_FROM ||
-            process.env.SMTP_USER,
+            MAIL_FROM ||
+            SMTP_USER,
 
           to: to,
 
@@ -771,6 +759,13 @@ app.use(
 );
 
 // ============================================================
+// STARTUP VALIDATION
+// ============================================================
+if (!SMTP_USER || !SMTP_PASS) {
+  console.warn("WARNING: Gmail SMTP credentials are not configured. Set SMTP_USER + SMTP_PASS (or GMAIL_USER + GMAIL_APP_PASSWORD) in Render Environment.");
+}
+
+// ============================================================
 // START SERVER
 // ============================================================
 
@@ -811,7 +806,7 @@ app.listen(
 
     console.log(
       `SMTP User: ${
-        process.env.SMTP_USER ||
+        SMTP_USER ||
         "NOT SET"
       }`
     );
