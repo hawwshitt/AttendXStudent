@@ -293,25 +293,47 @@ app.get(
 // GMAIL SMTP CONFIGURATION
 // ============================================================
 
-const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
-const SMTP_SECURE = String(process.env.SMTP_SECURE ?? (SMTP_PORT === 465 ? "true" : "false")).toLowerCase() === "true";
-const SMTP_USER = process.env.SMTP_USER || process.env.GMAIL_USER || "";
-const SMTP_PASS = String(process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "").replace(/\s/g, "");
-const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
+// Render can use either SMTP_* names or GMAIL_* names.
+// Gmail App Password is required; never use the normal Gmail password.
+const SMTP_USER =
+  process.env.SMTP_USER ||
+  process.env.GMAIL_USER ||
+  "";
 
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_SECURE,
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 30000,
-});
+const SMTP_PASS =
+  String(
+    process.env.SMTP_PASS ||
+    process.env.GMAIL_APP_PASSWORD ||
+    ""
+  ).replace(/\s/g, "");
+
+const SMTP_HOST =
+  process.env.SMTP_HOST || "smtp.gmail.com";
+
+const SMTP_PORT = Number(
+  process.env.SMTP_PORT || 587
+);
+
+const SMTP_SECURE =
+  String(
+    process.env.SMTP_SECURE ||
+    (SMTP_PORT === 465 ? "true" : "false")
+  ).toLowerCase() === "true";
+
+const transporter =
+  nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    requireTLS: SMTP_PORT === 587,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+  });
 
 // ============================================================
 // RECIPIENT HELPER
@@ -588,6 +610,22 @@ app.post(
 );
 
 // ============================================================
+// SMTP DIAGNOSTICS
+// ============================================================
+
+app.get("/api/smtp-status", (req, res) => {
+  res.json({
+    ok: Boolean(SMTP_USER && SMTP_PASS),
+    configured: Boolean(SMTP_USER && SMTP_PASS),
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    user: SMTP_USER || null,
+    passwordConfigured: Boolean(SMTP_PASS),
+  });
+});
+
+// ============================================================
 // OLD REMINDER ENDPOINT
 // ============================================================
 
@@ -792,15 +830,13 @@ app.listen(
 
     console.log(
       `SMTP Host: ${
-        process.env.SMTP_HOST ||
-        "smtp.gmail.com"
+        SMTP_HOST
       }`
     );
 
     console.log(
       `SMTP Port: ${
-        process.env.SMTP_PORT ||
-        "587"
+        SMTP_PORT
       }`
     );
 
@@ -827,5 +863,22 @@ app.listen(
     console.log(
       "========================================"
     );
+
+    if (SMTP_USER && SMTP_PASS) {
+      transporter.verify()
+        .then(() => {
+          console.log("Gmail SMTP verification: SUCCESS");
+        })
+        .catch((error) => {
+          console.error("Gmail SMTP verification: FAILED");
+          console.error("SMTP error code:", error.code || "unknown");
+          console.error("SMTP error:", error.message || "unknown error");
+          if (error.response) {
+            console.error("SMTP response:", error.response);
+          }
+        });
+    } else {
+      console.error("Gmail SMTP verification skipped: SMTP credentials are missing");
+    }
   }
 );
