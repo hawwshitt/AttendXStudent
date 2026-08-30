@@ -4,6 +4,10 @@ const express = require("express");
 const nodemailer = require("nodemailer");
 const path = require("path");
 
+const session = require("express-session");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+
 const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
@@ -20,26 +24,233 @@ app.use(express.static(__dirname));
 
 
 // ==================================================
+// SESSION
+// ==================================================
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "attendxstudent-secret",
+    resave: false,
+    saveUninitialized: false,
+
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  })
+);
+
+
+// ==================================================
+// PASSPORT
+// ==================================================
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+// ==================================================
+// GOOGLE OAUTH CONFIGURATION
+// ==================================================
+
+if (
+  process.env.GOOGLE_CLIENT_ID &&
+  process.env.GOOGLE_CLIENT_SECRET
+) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+
+        callbackURL:
+          process.env.GOOGLE_CALLBACK_URL ||
+          "https://attendxstudent.onrender.com/auth/google/callback",
+      },
+
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          console.log("Google login successful");
+
+          console.log("Google User ID:", profile.id);
+
+          console.log(
+            "Google Email:",
+            profile.emails?.[0]?.value
+          );
+
+          const user = {
+            id: profile.id,
+
+            name:
+              profile.displayName ||
+              "AttendXStudent User",
+
+            email:
+              profile.emails?.[0]?.value ||
+              "",
+
+            photo:
+              profile.photos?.[0]?.value ||
+              "",
+
+            provider: "google",
+          };
+
+          return done(null, user);
+
+        } catch (error) {
+          console.error(
+            "Google authentication error:",
+            error
+          );
+
+          return done(error, null);
+        }
+      }
+    )
+  );
+} else {
+  console.log(
+    "WARNING: Google OAuth environment variables are missing."
+  );
+}
+
+
+// ==================================================
+// PASSPORT SESSION SERIALIZATION
+// ==================================================
+
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+
+// ==================================================
+// GOOGLE LOGIN
+// ==================================================
+
+app.get(
+  "/auth/google",
+
+  passport.authenticate("google", {
+    scope: [
+      "profile",
+      "email",
+    ],
+  })
+);
+
+
+// ==================================================
+// GOOGLE CALLBACK
+// ==================================================
+
+app.get(
+  "/auth/google/callback",
+
+  passport.authenticate("google", {
+    failureRedirect: "/?login=failed",
+  }),
+
+  (req, res) => {
+    console.log(
+      "Google authentication completed"
+    );
+
+    // Login successful
+    res.redirect("/?login=success");
+  }
+);
+
+
+// ==================================================
+// CURRENT LOGGED-IN USER
+// ==================================================
+
+app.get("/api/me", (req, res) => {
+
+  if (!req.isAuthenticated()) {
+    return res.json({
+      loggedIn: false,
+      user: null,
+    });
+  }
+
+  res.json({
+    loggedIn: true,
+    user: req.user,
+  });
+});
+
+
+// ==================================================
+// LOGOUT
+// ==================================================
+
+app.get("/auth/logout", (req, res) => {
+
+  req.logout((error) => {
+
+    if (error) {
+      console.error(
+        "Logout error:",
+        error
+      );
+
+      return res.status(500).json({
+        ok: false,
+        error: "Logout failed",
+      });
+    }
+
+    req.session.destroy(() => {
+      res.redirect("/");
+    });
+  });
+});
+
+
+// ==================================================
 // GMAIL SMTP CONFIGURATION
 // ==================================================
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
 
-  port: Number(process.env.SMTP_PORT || 587),
+  host:
+    process.env.SMTP_HOST ||
+    "smtp.gmail.com",
+
+  port:
+    Number(
+      process.env.SMTP_PORT || 587
+    ),
 
   secure:
-    String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+    String(
+      process.env.SMTP_SECURE || "false"
+    ).toLowerCase() === "true",
 
   auth: {
     user: process.env.SMTP_USER,
 
     // Gmail App Password
-    pass: String(process.env.SMTP_PASS || "").replace(/\s/g, ""),
+    pass: String(
+      process.env.SMTP_PASS || ""
+    ).replace(/\s/g, ""),
   },
 
   connectionTimeout: 20000,
+
   greetingTimeout: 20000,
+
   socketTimeout: 30000,
 });
 
@@ -49,6 +260,7 @@ const transporter = nodemailer.createTransport({
 // ==================================================
 
 function getRecipient(body) {
+
   return (
     body?.to ||
     body?.email ||
@@ -65,282 +277,420 @@ function getRecipient(body) {
 // TEST SMTP CONNECTION
 // ==================================================
 
-app.get("/api/test-smtp", async (req, res) => {
-  try {
-    // Check Gmail username
-    if (!process.env.SMTP_USER) {
-      return res.status(500).json({
+app.get(
+  "/api/test-smtp",
+  async (req, res) => {
+
+    try {
+
+      if (!process.env.SMTP_USER) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_USER is missing",
+        });
+
+      }
+
+      if (!process.env.SMTP_PASS) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_PASS is missing",
+        });
+
+      }
+
+      await transporter.verify();
+
+      console.log(
+        "Gmail SMTP connection successful"
+      );
+
+      res.json({
+
+        ok: true,
+
+        message:
+          "Gmail SMTP connection is working",
+
+        user:
+          process.env.SMTP_USER,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "SMTP verification failed:",
+        error
+      );
+
+      res.status(500).json({
+
         ok: false,
-        error: "SMTP_USER is missing",
+
+        error:
+          error.message,
+
+        code:
+          error.code || null,
+
+        response:
+          error.response || null,
       });
     }
-
-    // Check Gmail App Password
-    if (!process.env.SMTP_PASS) {
-      return res.status(500).json({
-        ok: false,
-        error: "SMTP_PASS is missing",
-      });
-    }
-
-    // Test Gmail connection
-    await transporter.verify();
-
-    console.log("Gmail SMTP connection successful");
-
-    res.json({
-      ok: true,
-      message: "Gmail SMTP connection is working",
-      user: process.env.SMTP_USER,
-    });
-
-  } catch (error) {
-    console.error("SMTP verification failed:", error);
-
-    res.status(500).json({
-      ok: false,
-      error: error.message,
-      code: error.code || null,
-      response: error.response || null,
-    });
   }
-});
+);
 
 
 // ==================================================
 // TEST EMAIL
 // ==================================================
 
-app.post("/api/test-email", async (req, res) => {
-  try {
-    console.log("TEST EMAIL BODY:", req.body);
+app.post(
+  "/api/test-email",
+  async (req, res) => {
 
-    const to = getRecipient(req.body);
+    try {
 
-    // Check Gmail username
-    if (!process.env.SMTP_USER) {
-      return res.status(500).json({
+      console.log(
+        "TEST EMAIL BODY:",
+        req.body
+      );
+
+      const to =
+        getRecipient(req.body);
+
+      if (!process.env.SMTP_USER) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_USER is missing",
+        });
+
+      }
+
+      if (!process.env.SMTP_PASS) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_PASS is missing",
+        });
+
+      }
+
+      if (!to) {
+
+        return res.status(400).json({
+          ok: false,
+          error:
+            "Recipient email is required",
+        });
+
+      }
+
+      const info =
+        await transporter.sendMail({
+
+          from:
+            process.env.MAIL_FROM ||
+            process.env.SMTP_USER,
+
+          to: to,
+
+          subject:
+            "AttendXStudent Test Email",
+
+          text:
+            "This is a test email from AttendXStudent.\n\n" +
+            "If you received this email, Gmail SMTP is working correctly.",
+        });
+
+      console.log(
+        "Test email sent:",
+        info.messageId
+      );
+
+      res.json({
+
+        ok: true,
+
+        message:
+          "Test email sent successfully",
+
+        messageId:
+          info.messageId,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Test email failed:",
+        error
+      );
+
+      res.status(500).json({
+
         ok: false,
-        error: "SMTP_USER is missing",
+
+        error:
+          error.message,
+
+        code:
+          error.code || null,
+
+        response:
+          error.response || null,
       });
     }
-
-    // Check Gmail App Password
-    if (!process.env.SMTP_PASS) {
-      return res.status(500).json({
-        ok: false,
-        error: "SMTP_PASS is missing",
-      });
-    }
-
-    // Check recipient
-    if (!to) {
-      return res.status(400).json({
-        ok: false,
-        error: "Recipient email is required",
-      });
-    }
-
-    // Send test email
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-
-      to: to,
-
-      subject: "AttendXStudent Test Email",
-
-      text:
-        "This is a test email from AttendXStudent.\n\n" +
-        "If you received this email, Gmail SMTP is working correctly.",
-    });
-
-    console.log("Test email sent:", info.messageId);
-
-    res.json({
-      ok: true,
-      message: "Test email sent successfully",
-      messageId: info.messageId,
-    });
-
-  } catch (error) {
-    console.error("Test email failed:", error);
-
-    res.status(500).json({
-      ok: false,
-      error: error.message,
-      code: error.code || null,
-      response: error.response || null,
-    });
   }
-});
+);
 
 
 // ==================================================
 // SEND ABSENT STUDENT REMINDER
 // ==================================================
 
-app.post("/api/send-absent-reminder", async (req, res) => {
-  try {
-    console.log("ABSENT REMINDER BODY:", req.body);
+app.post(
+  "/api/send-absent-reminder",
+  async (req, res) => {
 
-    const to = getRecipient(req.body);
+    try {
 
-    const subject =
-      req.body?.subject ||
-      "AttendXStudent Attendance Reminder";
+      console.log(
+        "ABSENT REMINDER BODY:",
+        req.body
+      );
 
-    const body =
-      req.body?.body ||
-      req.body?.message ||
-      "You were marked Absent for today's class.";
+      const to =
+        getRecipient(req.body);
 
-    // ----------------------------------------------
-    // Check Gmail credentials
-    // ----------------------------------------------
+      const subject =
+        req.body?.subject ||
+        "AttendXStudent Attendance Reminder";
 
-    if (!process.env.SMTP_USER) {
-      return res.status(500).json({
+      const body =
+        req.body?.body ||
+        req.body?.message ||
+        "You were marked Absent for today's class.";
+
+      if (!process.env.SMTP_USER) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_USER is missing",
+        });
+
+      }
+
+      if (!process.env.SMTP_PASS) {
+
+        return res.status(500).json({
+          ok: false,
+          error: "SMTP_PASS is missing",
+        });
+
+      }
+
+      if (!to) {
+
+        return res.status(400).json({
+
+          ok: false,
+
+          error:
+            "Recipient email is required",
+
+          receivedBody:
+            req.body,
+        });
+      }
+
+      const info =
+        await transporter.sendMail({
+
+          from:
+            process.env.MAIL_FROM ||
+            process.env.SMTP_USER,
+
+          to: to,
+
+          subject: subject,
+
+          text: body,
+        });
+
+      console.log(
+        `Reminder email sent successfully to ${to}`
+      );
+
+      console.log(
+        "Message ID:",
+        info.messageId
+      );
+
+      res.json({
+
+        ok: true,
+
+        message:
+          "Email sent successfully",
+
+        messageId:
+          info.messageId,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Reminder email failed:",
+        error
+      );
+
+      res.status(500).json({
+
         ok: false,
-        error: "SMTP_USER is missing",
+
+        error:
+          error.message,
+
+        code:
+          error.code || null,
+
+        response:
+          error.response || null,
       });
     }
-
-    if (!process.env.SMTP_PASS) {
-      return res.status(500).json({
-        ok: false,
-        error: "SMTP_PASS is missing",
-      });
-    }
-
-    // ----------------------------------------------
-    // Check recipient
-    // ----------------------------------------------
-
-    if (!to) {
-      return res.status(400).json({
-        ok: false,
-        error: "Recipient email is required",
-        receivedBody: req.body,
-      });
-    }
-
-    // ----------------------------------------------
-    // Send email through Gmail
-    // ----------------------------------------------
-
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-
-      to: to,
-
-      subject: subject,
-
-      text: body,
-    });
-
-    console.log(
-      `Reminder email sent successfully to ${to}`
-    );
-
-    console.log("Message ID:", info.messageId);
-
-    res.json({
-      ok: true,
-      message: "Email sent successfully",
-      messageId: info.messageId,
-    });
-
-  } catch (error) {
-    console.error("Reminder email failed:", error);
-
-    res.status(500).json({
-      ok: false,
-      error: error.message,
-      code: error.code || null,
-      response: error.response || null,
-    });
   }
-});
+);
 
 
 // ==================================================
 // OLD REMINDER ENDPOINT
 // ==================================================
 
-app.post("/api/send-reminder", async (req, res) => {
-  try {
-    console.log("OLD REMINDER BODY:", req.body);
+app.post(
+  "/api/send-reminder",
+  async (req, res) => {
 
-    const to = getRecipient(req.body);
+    try {
 
-    const subject =
-      req.body?.subject ||
-      "AttendXStudent Attendance Reminder";
+      console.log(
+        "OLD REMINDER BODY:",
+        req.body
+      );
 
-    const body =
-      req.body?.body ||
-      req.body?.message ||
-      "You were marked Absent for today's class.";
+      const to =
+        getRecipient(req.body);
 
-    // Check Gmail credentials
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      return res.status(500).json({
+      const subject =
+        req.body?.subject ||
+        "AttendXStudent Attendance Reminder";
+
+      const body =
+        req.body?.body ||
+        req.body?.message ||
+        "You were marked Absent for today's class.";
+
+      if (
+        !process.env.SMTP_USER ||
+        !process.env.SMTP_PASS
+      ) {
+
+        return res.status(500).json({
+
+          ok: false,
+
+          error:
+            "SMTP_USER or SMTP_PASS is missing",
+        });
+      }
+
+      if (!to) {
+
+        return res.status(400).json({
+
+          ok: false,
+
+          error:
+            "Recipient email is required",
+
+          receivedBody:
+            req.body,
+        });
+      }
+
+      const info =
+        await transporter.sendMail({
+
+          from:
+            process.env.MAIL_FROM ||
+            process.env.SMTP_USER,
+
+          to: to,
+
+          subject: subject,
+
+          text: body,
+        });
+
+      console.log(
+        `Reminder sent to ${to}`
+      );
+
+      res.json({
+
+        ok: true,
+
+        message:
+          "Email sent successfully",
+
+        messageId:
+          info.messageId,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Reminder email failed:",
+        error
+      );
+
+      res.status(500).json({
+
         ok: false,
-        error: "SMTP_USER or SMTP_PASS is missing",
+
+        error:
+          error.message,
+
+        code:
+          error.code || null,
+
+        response:
+          error.response || null,
       });
     }
-
-    // Check recipient
-    if (!to) {
-      return res.status(400).json({
-        ok: false,
-        error: "Recipient email is required",
-        receivedBody: req.body,
-      });
-    }
-
-    // Send email
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-
-      to: to,
-
-      subject: subject,
-
-      text: body,
-    });
-
-    console.log(`Reminder sent to ${to}`);
-
-    res.json({
-      ok: true,
-      message: "Email sent successfully",
-      messageId: info.messageId,
-    });
-
-  } catch (error) {
-    console.error("Reminder email failed:", error);
-
-    res.status(500).json({
-      ok: false,
-      error: error.message,
-      code: error.code || null,
-      response: error.response || null,
-    });
   }
-});
+);
 
 
 // ==================================================
 // HEALTH CHECK
 // ==================================================
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    message: "AttendXStudent server is running",
-  });
-});
+app.get(
+  "/api/health",
+  (req, res) => {
+
+    res.json({
+
+      ok: true,
+
+      message:
+        "AttendXStudent server is running",
+    });
+  }
+);
 
 
 // ==================================================
@@ -348,7 +698,13 @@ app.get("/api/health", (req, res) => {
 // ==================================================
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+
+  res.sendFile(
+    path.join(
+      __dirname,
+      "index.html"
+    )
+  );
 });
 
 
@@ -356,24 +712,50 @@ app.get("/", (req, res) => {
 // START SERVER
 // ==================================================
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `AttendXStudent running on port ${PORT}`
-  );
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
 
-  console.log(
-    `SMTP Host: ${process.env.SMTP_HOST || "smtp.gmail.com"}`
-  );
+    console.log(
+      `AttendXStudent running on port ${PORT}`
+    );
 
-  console.log(
-    `SMTP Port: ${process.env.SMTP_PORT || "587"}`
-  );
+    console.log(
+      `SMTP Host: ${
+        process.env.SMTP_HOST ||
+        "smtp.gmail.com"
+      }`
+    );
 
-  console.log(
-    `SMTP User: ${process.env.SMTP_USER || "NOT SET"}`
-  );
+    console.log(
+      `SMTP Port: ${
+        process.env.SMTP_PORT ||
+        "587"
+      }`
+    );
 
-  console.log(
-    `MAIL FROM: ${process.env.MAIL_FROM || process.env.SMTP_USER || "NOT SET"}`
-  );
-});
+    console.log(
+      `SMTP User: ${
+        process.env.SMTP_USER ||
+        "NOT SET"
+      }`
+    );
+
+    console.log(
+      `MAIL FROM: ${
+        process.env.MAIL_FROM ||
+        process.env.SMTP_USER ||
+        "NOT SET"
+      }`
+    );
+
+    console.log(
+      `Google OAuth: ${
+        process.env.GOOGLE_CLIENT_ID
+          ? "CONFIGURED"
+          : "NOT CONFIGURED"
+      }`
+    );
+  }
+);
