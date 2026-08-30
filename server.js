@@ -3,7 +3,6 @@ require("dotenv").config();
 const express = require("express");
 const nodemailer = require("nodemailer");
 const path = require("path");
-
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
@@ -29,14 +28,22 @@ app.use(express.static(__dirname));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "attendxstudent-secret",
+    secret:
+      process.env.SESSION_SECRET ||
+      "attendxstudent-secret-key",
+
     resave: false,
+
     saveUninitialized: false,
 
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure:
+        process.env.NODE_ENV === "production",
+
       httpOnly: true,
+
       sameSite: "lax",
+
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
@@ -48,6 +55,7 @@ app.use(
 // ==================================================
 
 app.use(passport.initialize());
+
 app.use(passport.session());
 
 
@@ -55,56 +63,66 @@ app.use(passport.session());
 // GOOGLE OAUTH CONFIGURATION
 // ==================================================
 
+const GOOGLE_CALLBACK_URL =
+  process.env.GOOGLE_CALLBACK_URL ||
+  "https://attendxstudent.onrender.com/auth/google/callback";
+
+
 if (
   process.env.GOOGLE_CLIENT_ID &&
   process.env.GOOGLE_CLIENT_SECRET
 ) {
+
   passport.use(
     new GoogleStrategy(
-      {
-        clientID: process.env.GOOGLE_CLIENT_ID,
 
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      {
+        clientID:
+          process.env.GOOGLE_CLIENT_ID,
+
+        clientSecret:
+          process.env.GOOGLE_CLIENT_SECRET,
 
         callbackURL:
-          process.env.GOOGLE_CALLBACK_URL ||
-          "https://attendxstudent.onrender.com/auth/google/callback",
+          GOOGLE_CALLBACK_URL,
       },
 
-      async (accessToken, refreshToken, profile, done) => {
+      async (
+        accessToken,
+        refreshToken,
+        profile,
+        done
+      ) => {
+
         try {
-          console.log("Google login successful");
-
-          console.log("Google User ID:", profile.id);
-
-          console.log(
-            "Google Email:",
-            profile.emails?.[0]?.value
-          );
 
           const user = {
-            id: profile.id,
+
+            id:
+              profile.id,
 
             name:
-              profile.displayName ||
-              "AttendXStudent User",
+              profile.displayName || "",
 
             email:
-              profile.emails?.[0]?.value ||
-              "",
+              profile.emails?.[0]?.value || "",
 
             photo:
-              profile.photos?.[0]?.value ||
-              "",
+              profile.photos?.[0]?.value || "",
 
-            provider: "google",
           };
+
+          console.log(
+            "Google login:",
+            user.email
+          );
 
           return done(null, user);
 
         } catch (error) {
+
           console.error(
-            "Google authentication error:",
+            "Google OAuth error:",
             error
           );
 
@@ -113,24 +131,36 @@ if (
       }
     )
   );
+
 } else {
+
   console.log(
-    "WARNING: Google OAuth environment variables are missing."
+    "WARNING: Google OAuth credentials are missing."
   );
+
 }
 
 
 // ==================================================
-// PASSPORT SESSION SERIALIZATION
+// PASSPORT SESSION
 // ==================================================
 
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
+passport.serializeUser(
+  (user, done) => {
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
+    done(null, user);
+
+  }
+);
+
+
+passport.deserializeUser(
+  (user, done) => {
+
+    done(null, user);
+
+  }
+);
 
 
 // ==================================================
@@ -140,12 +170,15 @@ passport.deserializeUser((user, done) => {
 app.get(
   "/auth/google",
 
-  passport.authenticate("google", {
-    scope: [
-      "profile",
-      "email",
-    ],
-  })
+  passport.authenticate(
+    "google",
+    {
+      scope: [
+        "profile",
+        "email",
+      ],
+    }
+  )
 );
 
 
@@ -156,103 +189,147 @@ app.get(
 app.get(
   "/auth/google/callback",
 
-  passport.authenticate("google", {
-    failureRedirect: "/?login=failed",
-  }),
+  passport.authenticate(
+    "google",
+    {
+      failureRedirect:
+        "/?login=failed",
+    }
+  ),
 
   (req, res) => {
+
     console.log(
-      "Google authentication completed"
+      "Google authentication successful"
     );
 
-    // Login successful
-    res.redirect("/?login=success");
+    res.redirect(
+      "/?login=success"
+    );
+
   }
 );
 
 
 // ==================================================
-// CURRENT LOGGED-IN USER
+// GET CURRENT LOGGED-IN USER
 // ==================================================
 
-app.get("/api/me", (req, res) => {
+app.get(
+  "/api/me",
 
-  if (!req.isAuthenticated()) {
-    return res.json({
-      loggedIn: false,
-      user: null,
-    });
-  }
+  (req, res) => {
 
-  res.json({
-    loggedIn: true,
-    user: req.user,
-  });
-});
+    if (!req.isAuthenticated()) {
 
+      return res.json({
 
-// ==================================================
-// LOGOUT
-// ==================================================
+        loggedIn: false,
 
-app.get("/auth/logout", (req, res) => {
+        user: null,
 
-  req.logout((error) => {
-
-    if (error) {
-      console.error(
-        "Logout error:",
-        error
-      );
-
-      return res.status(500).json({
-        ok: false,
-        error: "Logout failed",
       });
+
     }
 
-    req.session.destroy(() => {
-      res.redirect("/");
+
+    res.json({
+
+      loggedIn: true,
+
+      user: req.user,
+
     });
-  });
-});
+
+  }
+);
+
+
+// ==================================================
+// GOOGLE LOGOUT
+// ==================================================
+
+app.get(
+  "/auth/logout",
+
+  (req, res) => {
+
+    req.logout((error) => {
+
+      if (error) {
+
+        console.error(
+          "Logout error:",
+          error
+        );
+
+        return res.status(500).json({
+
+          ok: false,
+
+          error:
+            "Logout failed",
+
+        });
+
+      }
+
+
+      req.session.destroy(
+        () => {
+
+          res.redirect("/");
+
+        }
+      );
+
+    });
+
+  }
+);
 
 
 // ==================================================
 // GMAIL SMTP CONFIGURATION
 // ==================================================
 
-const transporter = nodemailer.createTransport({
+const transporter =
+  nodemailer.createTransport({
 
-  host:
-    process.env.SMTP_HOST ||
-    "smtp.gmail.com",
+    host:
+      process.env.SMTP_HOST ||
+      "smtp.gmail.com",
 
-  port:
-    Number(
-      process.env.SMTP_PORT || 587
-    ),
+    port:
+      Number(
+        process.env.SMTP_PORT || 587
+      ),
 
-  secure:
-    String(
-      process.env.SMTP_SECURE || "false"
-    ).toLowerCase() === "true",
+    secure:
+      String(
+        process.env.SMTP_SECURE || "false"
+      ).toLowerCase() === "true",
 
-  auth: {
-    user: process.env.SMTP_USER,
+    auth: {
 
-    // Gmail App Password
-    pass: String(
-      process.env.SMTP_PASS || ""
-    ).replace(/\s/g, ""),
-  },
+      user:
+        process.env.SMTP_USER,
 
-  connectionTimeout: 20000,
+      // Gmail App Password
+      pass:
+        String(
+          process.env.SMTP_PASS || ""
+        ).replace(/\s/g, ""),
 
-  greetingTimeout: 20000,
+    },
 
-  socketTimeout: 30000,
-});
+    connectionTimeout: 20000,
+
+    greetingTimeout: 20000,
+
+    socketTimeout: 30000,
+
+  });
 
 
 // ==================================================
@@ -262,14 +339,23 @@ const transporter = nodemailer.createTransport({
 function getRecipient(body) {
 
   return (
+
     body?.to ||
+
     body?.email ||
+
     body?.recipient ||
+
     body?.recipientEmail ||
+
     body?.studentEmail ||
+
     body?.student?.email ||
+
     ""
+
   ).trim();
+
 }
 
 
@@ -279,6 +365,7 @@ function getRecipient(body) {
 
 app.get(
   "/api/test-smtp",
+
   async (req, res) => {
 
     try {
@@ -286,26 +373,38 @@ app.get(
       if (!process.env.SMTP_USER) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_USER is missing",
+
+          error:
+            "SMTP_USER is missing",
+
         });
 
       }
+
 
       if (!process.env.SMTP_PASS) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_PASS is missing",
+
+          error:
+            "SMTP_PASS is missing",
+
         });
 
       }
 
+
       await transporter.verify();
+
 
       console.log(
         "Gmail SMTP connection successful"
       );
+
 
       res.json({
 
@@ -316,6 +415,7 @@ app.get(
 
         user:
           process.env.SMTP_USER,
+
       });
 
     } catch (error) {
@@ -324,6 +424,7 @@ app.get(
         "SMTP verification failed:",
         error
       );
+
 
       res.status(500).json({
 
@@ -337,8 +438,11 @@ app.get(
 
         response:
           error.response || null,
+
       });
+
     }
+
   }
 );
 
@@ -349,6 +453,7 @@ app.get(
 
 app.post(
   "/api/test-email",
+
   async (req, res) => {
 
     try {
@@ -358,36 +463,52 @@ app.post(
         req.body
       );
 
+
       const to =
         getRecipient(req.body);
+
 
       if (!process.env.SMTP_USER) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_USER is missing",
+
+          error:
+            "SMTP_USER is missing",
+
         });
 
       }
+
 
       if (!process.env.SMTP_PASS) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_PASS is missing",
+
+          error:
+            "SMTP_PASS is missing",
+
         });
 
       }
+
 
       if (!to) {
 
         return res.status(400).json({
+
           ok: false,
+
           error:
             "Recipient email is required",
+
         });
 
       }
+
 
       const info =
         await transporter.sendMail({
@@ -396,7 +517,8 @@ app.post(
             process.env.MAIL_FROM ||
             process.env.SMTP_USER,
 
-          to: to,
+          to:
+            to,
 
           subject:
             "AttendXStudent Test Email",
@@ -404,12 +526,15 @@ app.post(
           text:
             "This is a test email from AttendXStudent.\n\n" +
             "If you received this email, Gmail SMTP is working correctly.",
+
         });
+
 
       console.log(
         "Test email sent:",
         info.messageId
       );
+
 
       res.json({
 
@@ -420,6 +545,7 @@ app.post(
 
         messageId:
           info.messageId,
+
       });
 
     } catch (error) {
@@ -428,6 +554,7 @@ app.post(
         "Test email failed:",
         error
       );
+
 
       res.status(500).json({
 
@@ -441,8 +568,11 @@ app.post(
 
         response:
           error.response || null,
+
       });
+
     }
+
   }
 );
 
@@ -453,6 +583,7 @@ app.post(
 
 app.post(
   "/api/send-absent-reminder",
+
   async (req, res) => {
 
     try {
@@ -462,35 +593,64 @@ app.post(
         req.body
       );
 
+
       const to =
         getRecipient(req.body);
 
+
       const subject =
         req.body?.subject ||
+
         "AttendXStudent Attendance Reminder";
+
 
       const body =
         req.body?.body ||
+
         req.body?.message ||
+
         "You were marked Absent for today's class.";
+
+
+      // ----------------------------------------------
+      // Check Gmail username
+      // ----------------------------------------------
 
       if (!process.env.SMTP_USER) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_USER is missing",
+
+          error:
+            "SMTP_USER is missing",
+
         });
 
       }
+
+
+      // ----------------------------------------------
+      // Check Gmail App Password
+      // ----------------------------------------------
 
       if (!process.env.SMTP_PASS) {
 
         return res.status(500).json({
+
           ok: false,
-          error: "SMTP_PASS is missing",
+
+          error:
+            "SMTP_PASS is missing",
+
         });
 
       }
+
+
+      // ----------------------------------------------
+      // Check recipient
+      // ----------------------------------------------
 
       if (!to) {
 
@@ -503,8 +663,15 @@ app.post(
 
           receivedBody:
             req.body,
+
         });
+
       }
+
+
+      // ----------------------------------------------
+      // Send email
+      // ----------------------------------------------
 
       const info =
         await transporter.sendMail({
@@ -513,21 +680,28 @@ app.post(
             process.env.MAIL_FROM ||
             process.env.SMTP_USER,
 
-          to: to,
+          to:
+            to,
 
-          subject: subject,
+          subject:
+            subject,
 
-          text: body,
+          text:
+            body,
+
         });
+
 
       console.log(
         `Reminder email sent successfully to ${to}`
       );
 
+
       console.log(
         "Message ID:",
         info.messageId
       );
+
 
       res.json({
 
@@ -538,6 +712,7 @@ app.post(
 
         messageId:
           info.messageId,
+
       });
 
     } catch (error) {
@@ -546,6 +721,7 @@ app.post(
         "Reminder email failed:",
         error
       );
+
 
       res.status(500).json({
 
@@ -559,8 +735,11 @@ app.post(
 
         response:
           error.response || null,
+
       });
+
     }
+
   }
 );
 
@@ -571,6 +750,7 @@ app.post(
 
 app.post(
   "/api/send-reminder",
+
   async (req, res) => {
 
     try {
@@ -580,17 +760,24 @@ app.post(
         req.body
       );
 
+
       const to =
         getRecipient(req.body);
 
+
       const subject =
         req.body?.subject ||
+
         "AttendXStudent Attendance Reminder";
+
 
       const body =
         req.body?.body ||
+
         req.body?.message ||
+
         "You were marked Absent for today's class.";
+
 
       if (
         !process.env.SMTP_USER ||
@@ -603,8 +790,11 @@ app.post(
 
           error:
             "SMTP_USER or SMTP_PASS is missing",
+
         });
+
       }
+
 
       if (!to) {
 
@@ -617,8 +807,11 @@ app.post(
 
           receivedBody:
             req.body,
+
         });
+
       }
+
 
       const info =
         await transporter.sendMail({
@@ -627,16 +820,22 @@ app.post(
             process.env.MAIL_FROM ||
             process.env.SMTP_USER,
 
-          to: to,
+          to:
+            to,
 
-          subject: subject,
+          subject:
+            subject,
 
-          text: body,
+          text:
+            body,
+
         });
+
 
       console.log(
         `Reminder sent to ${to}`
       );
+
 
       res.json({
 
@@ -647,6 +846,7 @@ app.post(
 
         messageId:
           info.messageId,
+
       });
 
     } catch (error) {
@@ -655,6 +855,7 @@ app.post(
         "Reminder email failed:",
         error
       );
+
 
       res.status(500).json({
 
@@ -668,8 +869,11 @@ app.post(
 
         response:
           error.response || null,
+
       });
+
     }
+
   }
 );
 
@@ -680,6 +884,7 @@ app.post(
 
 app.get(
   "/api/health",
+
   (req, res) => {
 
     res.json({
@@ -688,7 +893,9 @@ app.get(
 
       message:
         "AttendXStudent server is running",
+
     });
+
   }
 );
 
@@ -697,15 +904,20 @@ app.get(
 // ROOT
 // ==================================================
 
-app.get("/", (req, res) => {
+app.get(
+  "/",
 
-  res.sendFile(
-    path.join(
-      __dirname,
-      "index.html"
-    )
-  );
-});
+  (req, res) => {
+
+    res.sendFile(
+      path.join(
+        __dirname,
+        "index.html"
+      )
+    );
+
+  }
+);
 
 
 // ==================================================
@@ -715,11 +927,13 @@ app.get("/", (req, res) => {
 app.listen(
   PORT,
   "0.0.0.0",
+
   () => {
 
     console.log(
       `AttendXStudent running on port ${PORT}`
     );
+
 
     console.log(
       `SMTP Host: ${
@@ -728,12 +942,14 @@ app.listen(
       }`
     );
 
+
     console.log(
       `SMTP Port: ${
         process.env.SMTP_PORT ||
         "587"
       }`
     );
+
 
     console.log(
       `SMTP User: ${
@@ -742,20 +958,21 @@ app.listen(
       }`
     );
 
-    console.log(
-      `MAIL FROM: ${
-        process.env.MAIL_FROM ||
-        process.env.SMTP_USER ||
-        "NOT SET"
-      }`
-    );
 
     console.log(
       `Google OAuth: ${
         process.env.GOOGLE_CLIENT_ID
           ? "CONFIGURED"
           : "NOT CONFIGURED"
+      }` 
+    );
+
+
+    console.log(
+      `Google Callback: ${
+        GOOGLE_CALLBACK_URL
       }`
     );
+
   }
 );
